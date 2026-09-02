@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Doppie Assist</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <defs>
+        <symbol id="icon-settings" viewBox="0 0 24 24">
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="icon-type" viewBox="0 0 24 24">
+          <polyline points="4 7 4 4 20 4 20 7" />
+          <line x1="9" x2="15" y1="20" y2="20" />
+          <line x1="12" x2="12" y1="4" y2="20" />
+        </symbol>
+        <symbol id="icon-details" viewBox="0 0 24 24">
+          <line x1="21" x2="3" y1="6" y2="6" />
+          <line x1="15" x2="3" y1="12" y2="12" />
+          <line x1="17" x2="3" y1="18" y2="18" />
+        </symbol>
+        <symbol id="icon-team" viewBox="0 0 24 24">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </symbol>
+        <symbol id="icon-priority" viewBox="0 0 24 24">
+          <path d="M4 20v-4" />
+          <path d="M10 20V10" />
+          <path d="M16 20V4" />
+          <path d="M22 20V8" />
+        </symbol>
+        <symbol id="icon-user" viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="5" />
+          <path d="M20 21a8 8 0 0 0-16 0" />
+        </symbol>
+        <symbol id="icon-project" viewBox="0 0 24 24">
+          <path
+            d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
+          />
+        </symbol>
+        <symbol id="icon-labels" viewBox="0 0 24 24">
+          <path
+            d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42Z"
+          />
+          <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
+        </symbol>
+        <symbol id="icon-lock" viewBox="0 0 24 24">
+          <rect width="18" height="11" x="3" y="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </symbol>
+      </defs>
+    </svg>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img class="brand-icon" src="assets/icon-128.png" alt="" />
+          <span>Doppie Assist</span>
+        </div>
+        <button
+          class="icon-btn"
+          id="open-settings"
+          aria-label="Connection settings"
+          title="Connection settings"
+        >
+          <svg aria-hidden="true"><use href="#icon-settings"></use></svg>
+        </button>
+      </header>
+
+      <section id="compose-view">
+        <div class="page-context">
+          <span class="page-favicon" id="page-favicon">W</span>
+          <div class="page-copy">
+            <strong id="page-title">Current page</strong
+            ><span id="page-url">Loading active tab...</span>
+          </div>
+          <span class="live-dot" title="Active tab"></span>
+        </div>
+
+        <section class="capture-zone">
+          <div class="capture-actions">
+            <button class="capture-button" id="start-capture">
+              <span class="target-icon" aria-hidden="true"><i></i></span>
+              <span><strong>Region</strong><small>Drag an area</small></span>
+              <kbd id="region-shortcut">⌘⇧1</kbd>
+            </button>
+            <button
+              class="capture-button element-button"
+              id="start-element-capture"
+            >
+              <span class="element-icon" aria-hidden="true"><i></i></span>
+              <span
+                ><strong>Review</strong><small>Annotate elements</small></span
+              >
+              <kbd id="element-shortcut">⌘⇧2</kbd>
+            </button>
+          </div>
+          <div class="preview empty" id="preview">
+            <div class="empty-preview">
+              <span class="corner-box"></span>
+              <p>Your marked-up screenshot<br />will appear here.</p>
+            </div>
+            <img id="capture-image" alt="Annotated page capture" />
+            <div class="preview-bar">
+              <span id="capture-size">Targeted capture</span
+              ><button id="remove-capture">Remove</button>
+            </div>
+          </div>
+        </section>
+
+        <form id="issue-form">
+          <label class="field"
+            ><span class="field-label"
+              ><svg aria-hidden="true"><use href="#icon-type"></use></svg>Issue
+              title</span
+            ><input
+              id="issue-title"
+              maxlength="120"
+              placeholder="What needs attention?"
+              autocomplete="off"
+          /></label>
+          <label class="field"
+            ><span class="field-label"
+              ><svg aria-hidden="true"><use href="#icon-details"></use></svg
+              >Details</span
+            ><textarea
+              id="details"
+              rows="3"
+              placeholder="Add context for your team"
+            ></textarea>
+          </label>
+
+          <div class="form-row">
+            <label class="field team-field"
+              ><span class="field-label"
+                ><svg aria-hidden="true"><use href="#icon-team"></use></svg
+                >Team</span
+              ><select id="team">
+                <option value="">Connect Linear</option>
+              </select></label
+            >
+            <fieldset class="priority-field">
+              <legend class="field-label">
+                <svg aria-hidden="true"><use href="#icon-priority"></use></svg
+                >Priority
+              </legend>
+              <div class="segmented" id="priority">
+                <button type="button" class="selected" data-value="3">
+                  Normal</button
+                ><button type="button" data-value="2">High</button
+                ><button type="button" data-value="1">Urgent</button>
+              </div>
+            </fieldset>
+          </div>
+
+          <button class="routing-button" id="open-routing" type="button">
+            <span
+              ><small>ROUTING</small
+              ><strong id="routing-summary"
+                >Assignee, project &amp; labels</strong
+              ></span
+            >
+            <b id="routing-count">0</b><i>→</i>
+          </button>
+
+          <button class="primary" id="create-issue" type="submit">
+            <span>Create issue</span><span class="arrow">↗</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="settings-view hidden" id="settings-view">
+        <button class="back" id="close-settings">← Back</button>
+        <div class="settings-title">
+          <p>LINEAR CONNECTION</p>
+          <h1>Send notes where<br />the work happens.</h1>
+        </div>
+        <div class="connection-actions" id="connection-actions">
+          <button
+            class="primary oauth-connect"
+            id="connect-oauth"
+            type="button"
+          >
+            <span class="oauth-label"
+              ><img src="assets/linear-logo-light.svg" alt="" />Connect to
+              Linear</span
+            ><span class="arrow">↗</span>
+          </button>
+          <details class="connection-option api-key-option">
+            <summary>Use a personal API key</summary>
+            <label class="field"
+              ><span class="field-label"
+                ><svg aria-hidden="true"><use href="#icon-lock"></use></svg
+                >Personal API key</span
+              ><input
+                id="api-key"
+                type="password"
+                placeholder="lin_api_••••••••"
+            /></label>
+            <button
+              class="secondary-connect"
+              id="connect-api-key"
+              type="button"
+            >
+              Connect with API key
+            </button>
+          </details>
+        </div>
+        <div class="connection-card hidden" id="connection-card">
+          <div>
+            <span class="connected-dot"></span
+            ><strong id="viewer-name">Connected</strong
+            ><small
+              ><span id="connection-method"></span> ·
+              <span id="team-count"></span
+            ></small>
+          </div>
+          <button id="disconnect">Disconnect</button>
+        </div>
+        <p class="privacy" id="connection-privacy">
+          Credentials stay in this browser profile.
+        </p>
+        <div class="shortcut-list">
+          <p>CAPTURE SHORTCUTS</p>
+          <div>
+            <span>Region</span><kbd id="settings-region-shortcut">⌘⇧1</kbd>
+          </div>
+          <div>
+            <span>Element</span><kbd id="settings-element-shortcut">⌘⇧2</kbd>
+          </div>
+          <button id="edit-shortcuts" type="button">Edit shortcuts →</button>
+        </div>
+      </section>
+
+      <section class="routing-view hidden" id="routing-view">
+        <button class="back" id="close-routing">← Back</button>
+        <div class="settings-title routing-title">
+          <p>ISSUE ROUTING</p>
+          <h1>Put it in the<br />right hands.</h1>
+        </div>
+        <div class="routing-grid">
+          <label class="field"
+            ><span class="field-label"
+              ><svg aria-hidden="true"><use href="#icon-user"></use></svg
+              >Assignee</span
+            ><select id="assignee">
+              <option value="">No assignee</option>
+            </select></label
+          >
+          <label class="field"
+            ><span class="field-label"
+              ><svg aria-hidden="true"><use href="#icon-project"></use></svg
+              >Project</span
+            ><select id="project">
+              <option value="">No project</option>
+            </select></label
+          >
+        </div>
+        <fieldset class="label-field">
+          <legend class="field-label">
+            <svg aria-hidden="true"><use href="#icon-labels"></use></svg>Labels
+          </legend>
+          <input id="label-search" type="search" placeholder="Find a label" />
+          <div class="label-list" id="label-list"></div>
+        </fieldset>
+        <button class="primary routing-done" id="save-routing" type="button">
+          <span>Done</span><span class="arrow">✓</span>
+        </button>
+      </section>
+
+      <footer>
+        <button class="footer-tab active" id="compose-tab">
+          <span class="footer-icon">＋</span> New issue
+        </button>
+        <button class="footer-tab" id="inbox-tab">
+          <span class="footer-icon">▤</span> Drafts <b id="draft-count">0</b>
+        </button>
+        <span class="connection-status" id="connection-status"
+          ><i></i>Local mode</span
+        >
+      </footer>
+
+      <section class="drafts-drawer hidden" id="drafts-view">
+        <div class="drawer-head">
+          <h2>Recent issues</h2>
+          <button id="close-drafts" aria-label="Close">×</button>
+        </div>
+        <div id="draft-list"></div>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="issue-format.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

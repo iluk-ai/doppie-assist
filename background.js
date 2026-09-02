@@ -1,0 +1,566 @@
+const LINEAR_AUTHORIZE_URL = "https://linear.app/oauth/authorize";
+const LINEAR_TOKEN_URL = "https://api.linear.app/oauth/token";
+const LINEAR_REVOKE_URL = "https://api.linear.app/oauth/revoke";
+const LINEAR_SCOPES = "read,write,issues:create";
+const LINEAR_OAUTH_REDIRECT_PATH = "linear";
+const DEFAULT_LINEAR_OAUTH_CLIENT_ID = "e0018f12b51653925dce65a8a48e355f";
+let refreshPromise = null;
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.get(
+    ["captures", "issues", "linearConfig", "linearAuth"],
+    (result) => {
+      const updates = {};
+      if (!result.captures) updates.captures = [];
+      if (!result.issues) updates.issues = [];
+      if (!result.linearAuth && result.linearConfig?.apiKey) {
+        updates.linearAuth = {
+          type: "apiKey",
+          apiKey: result.linearConfig.apiKey,
+        };
+        const { apiKey: _apiKey, ...config } = result.linearConfig;
+        updates.linearConfig = {
+          ...config,
+          connected: true,
+          authType: "apiKey",
+        };
+      }
+      if (Object.keys(updates).length) chrome.storage.local.set(updates);
+    },
+  );
+});
+
+const linearRequestWithAuthorization = async (
+  authorization,
+  query,
+  variables = {},
+) => {
+  const response = await fetch("https://api.linear.app/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: authorization,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.errors?.length) {
+    const error = payload.errors?.[0];
+    const requestError = new Error(
+      error?.extensions?.userPresentableMessage ||
+        error?.extensions?.validationErrors?.[0]?.message ||
+        error?.message ||
+        `Linear request failed (${response.status})`,
+    );
+    requestError.status = response.status;
+    throw requestError;
+  }
+  return payload.data;
+};
+
+const oauthTokenRequest = async (parameters) => {
+  const response = await fetch(LINEAR_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(parameters),
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.error) {
+    throw new Error(
+      payload.error_description || payload.error || "Linear OAuth failed",
+    );
+  }
+  if (!payload.access_token)
+    throw new Error("Linear did not return an access token");
+  return payload;
+};
+
+const storedOAuthToken = (current, payload) => ({
+  type: "oauth",
+  clientId: current.clientId,
+  accessToken: payload.access_token,
+  refreshToken: payload.refresh_token || current.refreshToken,
+  expiresAt: Date.now() + Number(payload.expires_in || 86400) * 1000,
+  scope: payload.scope || current.scope || LINEAR_SCOPES,
+});
+
+const migrateLegacyLinearAuth = async () => {
+  const { linearAuth, linearConfig } = await chrome.storage.local.get([
+    "linearAuth",
+    "linearConfig",
+  ]);
+  if (linearAuth || !linearConfig?.apiKey) return linearAuth || null;
+  const migrated = { type: "apiKey", apiKey: linearConfig.apiKey };
+  const { apiKey: _apiKey, ...config } = linearConfig;
+  await chrome.storage.local.set({
+    linearAuth: migrated,
+    linearConfig: { ...config, connected: true, authType: "apiKey" },
+  });
+  return migrated;
+};
+
+const refreshOAuthToken = async (auth) => {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    if (!auth.refreshToken) throw new Error("Reconnect Linear to continue");
+    const payload = await oauthTokenRequest({
+      grant_type: "refresh_token",
+      refresh_token: auth.refreshToken,
+      client_id: auth.clientId,
+    });
+    const refreshed = storedOAuthToken(auth, payload);
+    await chrome.storage.local.set({ linearAuth: refreshed });
+    return refreshed;
+  })();
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+};
+
+const getValidLinearAuth = async ({ forceRefresh = false } = {}) => {
+  let auth = await migrateLegacyLinearAuth();
+  if (!auth) throw new Error("Connect Linear first");
+  if (
+    auth.type === "oauth" &&
+    (forceRefresh || !auth.accessToken || auth.expiresAt <= Date.now() + 60000)
+  )
+    auth = await refreshOAuthToken(auth);
+  return auth;
+};
+
+const authorizationFor = (auth) => {
+  if (auth.type === "oauth") return `Bearer ${auth.accessToken}`;
+  if (auth.type === "apiKey" && auth.apiKey) return auth.apiKey;
+  throw new Error("Reconnect Linear to continue");
+};
+
+const linearRequest = async (query, variables = {}, allowRefresh = true) => {
+  let auth = await getValidLinearAuth();
+  try {
+    return await linearRequestWithAuthorization(
+      authorizationFor(auth),
+      query,
+      variables,
+    );
+  } catch (error) {
+    if (error.status !== 401 || auth.type !== "oauth" || !allowRefresh)
+      throw error;
+    auth = await getValidLinearAuth({ forceRefresh: true });
+    return linearRequestWithAuthorization(
+      authorizationFor(auth),
+      query,
+      variables,
+    );
+  }
+};
+
+const connectionQuery = `query DoppieAssistConnection {
+  viewer { id name }
+  teams { nodes { id name key } }
+  users(first: 250) { nodes { id name displayName active } }
+  projects(first: 100, includeArchived: false) { nodes { id name } }
+  issueLabels(first: 250) { nodes { id name color } }
+}`;
+
+const configFromConnection = (data, authType) => ({
+  connected: true,
+  authType,
+  viewer: data.viewer,
+  teams: data.teams.nodes,
+  users: data.users.nodes.filter((user) => user.active),
+  projects: data.projects.nodes,
+  labels: data.issueLabels.nodes,
+});
+
+const saveConnection = async (data, authType) => {
+  const config = configFromConnection(data, authType);
+  await chrome.storage.local.set({ linearConfig: config });
+  return config;
+};
+
+const bytesToBase64Url = (bytes) => {
+  const binary = String.fromCharCode(...bytes);
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+};
+
+const randomBase64Url = (length = 32) => {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytesToBase64Url(bytes);
+};
+
+const sha256Base64Url = async (value) => {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(value),
+  );
+  return bytesToBase64Url(new Uint8Array(digest));
+};
+
+const connectLinearOAuth = async (providedClientId) => {
+  const { linearOAuthClientId } = await chrome.storage.local.get(
+    "linearOAuthClientId",
+  );
+  const clientId = String(
+    providedClientId || linearOAuthClientId || DEFAULT_LINEAR_OAUTH_CLIENT_ID,
+  ).trim();
+  if (!clientId) throw new Error("Add the Linear OAuth client ID first");
+  const redirectUri = chrome.identity.getRedirectURL(
+    LINEAR_OAUTH_REDIRECT_PATH,
+  );
+  const state = randomBase64Url();
+  const verifier = randomBase64Url(64);
+  const challenge = await sha256Base64Url(verifier);
+  await chrome.storage.session.set({
+    linearOAuthAttempt: {
+      clientId,
+      redirectUri,
+      state,
+      verifier,
+      createdAt: Date.now(),
+    },
+  });
+  await chrome.storage.local.set({ linearOAuthClientId: clientId });
+  const authorizationUrl = new URL(LINEAR_AUTHORIZE_URL);
+  authorizationUrl.search = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: LINEAR_SCOPES,
+    prompt: "consent",
+    actor: "user",
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
+  const responseUrl = await chrome.identity.launchWebAuthFlow({
+    url: authorizationUrl.href,
+    interactive: true,
+  });
+  if (!responseUrl) throw new Error("Linear authorization was cancelled");
+  const callback = new URL(responseUrl);
+  const expectedCallback = new URL(redirectUri);
+  if (
+    callback.origin !== expectedCallback.origin ||
+    callback.pathname !== expectedCallback.pathname
+  )
+    throw new Error("Linear returned an unexpected callback URL");
+  if (callback.searchParams.get("state") !== state)
+    throw new Error("Linear authorization state did not match");
+  if (callback.searchParams.get("error"))
+    throw new Error(
+      callback.searchParams.get("error_description") ||
+        callback.searchParams.get("error"),
+    );
+  const code = callback.searchParams.get("code");
+  if (!code) throw new Error("Linear did not return an authorization code");
+  const payload = await oauthTokenRequest({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: redirectUri,
+    client_id: clientId,
+    code_verifier: verifier,
+  });
+  const auth = storedOAuthToken({ clientId }, payload);
+  await chrome.storage.local.set({ linearAuth: auth });
+  await chrome.storage.session.remove("linearOAuthAttempt");
+  const data = await linearRequestWithAuthorization(
+    authorizationFor(auth),
+    connectionQuery,
+  );
+  return saveConnection(data, "oauth");
+};
+
+const dataUrlToBlob = (dataUrl) => {
+  const match =
+    /^data:(image\/(?:jpeg|png|webp));base64,([a-z0-9+/=\s]+)$/i.exec(
+      dataUrl || "",
+    );
+  if (!match) throw new Error("Screenshot format is not supported");
+  const bytes = Uint8Array.from(atob(match[2].replace(/\s/g, "")), (value) =>
+    value.charCodeAt(0),
+  );
+  return new Blob([bytes], { type: match[1].toLowerCase() });
+};
+
+const uploadScreenshotToLinear = async (dataUrl, filename) => {
+  const file = dataUrlToBlob(dataUrl);
+  const data = await linearRequest(
+    `mutation DoppieAssistFileUpload(
+      $contentType: String!
+      $filename: String!
+      $size: Int!
+    ) {
+      fileUpload(
+        contentType: $contentType
+        filename: $filename
+        size: $size
+      ) {
+        success
+        uploadFile {
+          assetUrl
+          uploadUrl
+          headers { key value }
+        }
+      }
+    }`,
+    {
+      contentType: file.type,
+      filename,
+      size: file.size,
+    },
+  );
+  const upload = data.fileUpload?.uploadFile;
+  if (!data.fileUpload?.success || !upload?.uploadUrl || !upload.assetUrl)
+    throw new Error("Linear did not provide a screenshot upload URL");
+
+  const headers = new Headers({
+    "Content-Type": file.type,
+    "Cache-Control": "public, max-age=31536000",
+  });
+  (upload.headers || []).forEach(({ key, value }) => headers.set(key, value));
+  const response = await fetch(upload.uploadUrl, {
+    method: "PUT",
+    headers,
+    body: file,
+  });
+  if (!response.ok)
+    throw new Error(`Screenshot upload failed (${response.status})`);
+  return upload.assetUrl;
+};
+
+const normalizedIssueInput = (input = {}) => {
+  const normalized = {
+    title: String(input.title || "")
+      .trim()
+      .slice(0, 255),
+    teamId: String(input.teamId || "").trim(),
+    description: String(input.description || "").trim(),
+  };
+  if (!normalized.title || !normalized.teamId)
+    throw new Error("Each issue needs a title and Linear team");
+  if ([1, 2, 3, 4].includes(Number(input.priority)))
+    normalized.priority = Number(input.priority);
+  if (input.assigneeId) normalized.assigneeId = String(input.assigneeId);
+  if (input.projectId) normalized.projectId = String(input.projectId);
+  if (input.parentId) normalized.parentId = String(input.parentId);
+  if (Array.isArray(input.labelIds) && input.labelIds.length)
+    normalized.labelIds = [...new Set(input.labelIds.map(String))];
+  return normalized;
+};
+
+const revokeOAuthToken = async (token, tokenType) => {
+  if (!token) return;
+  const response = await fetch(LINEAR_REVOKE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token, token_type_hint: tokenType }),
+  });
+  if (!response.ok && response.status !== 400)
+    throw new Error(`Linear token revocation failed (${response.status})`);
+};
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "install-page-monitor") {
+    if (!sender.tab?.id) {
+      sendResponse({ ok: false, error: "No active page available" });
+      return false;
+    }
+    chrome.scripting
+      .executeScript({
+        target: { tabId: sender.tab.id, frameIds: [sender.frameId || 0] },
+        files: ["page-monitor.js"],
+        world: "MAIN",
+      })
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "capture-visible-tab") {
+    chrome.tabs
+      .captureVisibleTab(sender.tab?.windowId, { format: "png" })
+      .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "selection") {
+    chrome.storage.local.set({
+      lastSelection: {
+        text: message.text,
+        url: message.url,
+        title: message.title,
+      },
+    });
+    return false;
+  }
+
+  if (message.type === "open-issue-composer") {
+    (async () => {
+      await chrome.storage.local.set({
+        pendingComposer: {
+          captureCreatedAt: message.captureCreatedAt,
+          requestedAt: Date.now(),
+        },
+      });
+
+      try {
+        const options = Number.isInteger(sender.tab?.windowId)
+          ? { windowId: sender.tab.windowId }
+          : {};
+        await chrome.action.openPopup(options);
+        sendResponse({ ok: true, mode: "popup" });
+      } catch (_) {
+        await chrome.windows.create({
+          url: chrome.runtime.getURL("popup.html?composer=1"),
+          type: "popup",
+          width: 420,
+          height: 680,
+          focused: true,
+        });
+        sendResponse({ ok: true, mode: "window" });
+      }
+    })().catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "linear-auth-info") {
+    chrome.storage.local
+      .get("linearOAuthClientId")
+      .then(({ linearOAuthClientId }) =>
+        sendResponse({
+          ok: true,
+          clientId: linearOAuthClientId || DEFAULT_LINEAR_OAUTH_CLIENT_ID || "",
+          redirectUri: chrome.identity.getRedirectURL(
+            LINEAR_OAUTH_REDIRECT_PATH,
+          ),
+          scopes: LINEAR_SCOPES,
+        }),
+      )
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "linear-oauth-connect") {
+    connectLinearOAuth(message.clientId)
+      .then((config) => sendResponse({ ok: true, ...config }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }))
+      .finally(() => chrome.storage.session.remove("linearOAuthAttempt"));
+    return true;
+  }
+
+  if (message.type === "linear-connect") {
+    const apiKey = String(message.apiKey || "").trim();
+    if (!apiKey) {
+      sendResponse({ ok: false, error: "Enter your Linear API key" });
+      return false;
+    }
+    linearRequestWithAuthorization(apiKey, connectionQuery)
+      .then(async (data) => {
+        await chrome.storage.local.set({
+          linearAuth: { type: "apiKey", apiKey },
+        });
+        const config = await saveConnection(data, "apiKey");
+        sendResponse({ ok: true, ...config });
+      })
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "linear-disconnect") {
+    (async () => {
+      const auth = await migrateLegacyLinearAuth();
+      let warning = "";
+      if (auth?.type === "oauth") {
+        try {
+          await revokeOAuthToken(auth.refreshToken, "refresh_token");
+        } catch (error) {
+          warning = error.message;
+        }
+      }
+      await chrome.storage.local.remove(["linearConfig", "linearAuth"]);
+      await chrome.storage.session.remove("linearOAuthAttempt");
+      sendResponse({ ok: true, warning });
+    })().catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "create-linear-issue") {
+    getValidLinearAuth()
+      .then(async () => {
+        const input = normalizedIssueInput(message.input);
+        const evidence = [
+          ...(message.screenshot?.startsWith("data:image/")
+            ? [
+                {
+                  dataUrl: message.screenshot,
+                  filename:
+                    message.screenshotName || `doppie-assist-${Date.now()}.jpg`,
+                  alt: "Screenshot from Doppie Assist",
+                },
+              ]
+            : []),
+          ...(Array.isArray(message.screenshots) ? message.screenshots : []),
+        ].slice(0, 10);
+        if (evidence.length) {
+          const images = [];
+          for (let index = 0; index < evidence.length; index += 1) {
+            const item = evidence[index];
+            if (!item?.dataUrl?.startsWith("data:image/")) continue;
+            const assetUrl = await uploadScreenshotToLinear(
+              item.dataUrl,
+              item.filename || `doppie-evidence-${index + 1}.jpg`,
+            );
+            const alt = String(item.alt || `Evidence ${index + 1}`).replace(
+              /[\[\]]/g,
+              "",
+            );
+            images.push(`![${alt}](${assetUrl})`);
+          }
+          if (images.length)
+            input.description = `${input.description}\n\n## Evidence\n${images.join("\n\n")}`;
+        }
+        return linearRequest(
+          `
+        mutation DoppieAssistIssueCreate($input: IssueCreateInput!) {
+          issueCreate(input: $input) { success issue { id identifier title url } }
+        }
+      `,
+          { input },
+        );
+      })
+      .then((data) => sendResponse({ ok: true, issue: data.issueCreate.issue }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+});
+
+chrome.commands.onCommand.addListener(async (command) => {
+  const messageTypes = {
+    "capture-region": "start-target-capture",
+    "capture-element": "start-multi-annotation",
+  };
+  const type = messageTypes[command];
+  if (!type) return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || !/^https?:/.test(tab.url || "")) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type });
+  } catch (_) {
+    await chrome.scripting.insertCSS({
+      target: { tabId: tab.id },
+      files: ["content.css"],
+    });
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["issue-format.js", "content.js"],
+    });
+    await chrome.tabs.sendMessage(tab.id, { type });
+  }
+});

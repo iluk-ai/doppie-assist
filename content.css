@@ -1,0 +1,2055 @@
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/outfit-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/outfit-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-024F, U+1E00-1EFF;
+}
+@font-face {
+  font-family: "DM Serif Display";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("assets/dm-serif-display-latin.woff2") format("woff2");
+}
+.margin-highlight {
+  background: #dff06f !important;
+  color: inherit !important;
+  border-bottom: 2px solid #325f52 !important;
+  cursor: pointer !important;
+}
+.margin-capture-layer,
+.margin-element-layer,
+.margin-editor-layer,
+.margin-capture-layer *,
+.margin-element-layer *,
+.margin-editor-layer *,
+.margin-toast,
+.margin-toast * {
+  box-sizing: border-box !important;
+  letter-spacing: 0 !important;
+}
+.margin-capture-layer {
+  position: fixed !important;
+  z-index: 2147483646 !important;
+  inset: 0 !important;
+  cursor: crosshair !important;
+  user-select: none !important;
+}
+.margin-capture-layer:before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(19, 25, 22, 0.52) !important;
+}
+.margin-capture-tip {
+  position: fixed !important;
+  z-index: 2 !important;
+  top: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  display: grid !important;
+  grid-template-columns: 30px auto !important;
+  align-items: center !important;
+  column-gap: 10px !important;
+  padding: 10px 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 5px !important;
+  background: #202421 !important;
+  color: #fff !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.25) !important;
+  font:
+    12px/1.3 "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+}
+.margin-capture-tip strong {
+  font-size: 12px !important;
+}
+.margin-capture-tip small {
+  grid-column: 2 !important;
+  color: #aeb8b1 !important;
+  font-size: 9px !important;
+}
+.margin-target {
+  grid-row: 1/3 !important;
+  position: relative !important;
+  width: 28px !important;
+  height: 28px !important;
+  border: 1px solid #91aa9f !important;
+  border-radius: 50% !important;
+}
+.margin-target:before,
+.margin-target:after {
+  content: "" !important;
+  position: absolute !important;
+  background: #dff06f !important;
+}
+.margin-target:before {
+  width: 12px !important;
+  height: 1px !important;
+  left: 7px !important;
+  top: 13px !important;
+}
+.margin-target:after {
+  width: 1px !important;
+  height: 12px !important;
+  left: 13px !important;
+  top: 7px !important;
+}
+.margin-selection-box {
+  position: fixed !important;
+  display: none !important;
+  z-index: 1 !important;
+  border: 2px solid #dff06f !important;
+  background: transparent !important;
+  box-shadow: 0 0 0 9999px rgba(19, 25, 22, 0.58) !important;
+}
+.margin-selection-box.visible {
+  display: block !important;
+}
+.margin-selection-box span {
+  position: absolute !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #dff06f !important;
+  border: 1px solid #325f52 !important;
+}
+.margin-selection-box span:nth-child(1) {
+  left: -5px !important;
+  top: -5px !important;
+}
+.margin-selection-box span:nth-child(2) {
+  right: -5px !important;
+  top: -5px !important;
+}
+.margin-selection-box span:nth-child(3) {
+  right: -5px !important;
+  bottom: -5px !important;
+}
+.margin-selection-box span:nth-child(4) {
+  left: -5px !important;
+  bottom: -5px !important;
+}
+.margin-selection-box b {
+  position: absolute !important;
+  right: 0 !important;
+  bottom: -26px !important;
+  padding: 3px 6px !important;
+  border-radius: 3px !important;
+  background: #dff06f !important;
+  color: #202421 !important;
+  font:
+    600 9px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace !important;
+  white-space: nowrap !important;
+}
+.margin-element-picking,
+.margin-element-picking * {
+  cursor: crosshair !important;
+}
+.margin-element-layer {
+  position: fixed !important;
+  z-index: 2147483646 !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+.margin-element-tip {
+  position: fixed !important;
+  z-index: 2 !important;
+  top: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  display: grid !important;
+  grid-template-columns: 30px auto !important;
+  align-items: center !important;
+  column-gap: 10px !important;
+  padding: 10px 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 5px !important;
+  background: #202421 !important;
+  color: #fff !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.25) !important;
+  font:
+    12px/1.3 "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+}
+.margin-element-tip strong {
+  font-size: 12px !important;
+}
+.margin-element-tip small {
+  grid-column: 2 !important;
+  color: #aeb8b1 !important;
+  font-size: 9px !important;
+}
+.margin-element-symbol {
+  grid-row: 1/3 !important;
+  width: 28px !important;
+  height: 28px !important;
+  border: 1px solid #91aa9f !important;
+  border-radius: 4px !important;
+  box-shadow: inset 0 0 0 7px #202421 !important;
+  background: #dff06f !important;
+}
+.margin-element-box {
+  position: fixed !important;
+  display: block !important;
+  border: 2px solid #dff06f !important;
+  border-radius: 2px !important;
+  background: rgba(223, 240, 111, 0.14) !important;
+  box-shadow:
+    0 0 0 1px #325f52,
+    0 5px 18px rgba(21, 35, 29, 0.22) !important;
+  transition:
+    left 0.05s linear,
+    top 0.05s linear,
+    width 0.05s linear,
+    height 0.05s linear !important;
+}
+.margin-element-box b,
+.margin-element-box small {
+  position: absolute !important;
+  top: -27px !important;
+  height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 7px !important;
+  color: #202421 !important;
+  white-space: nowrap !important;
+  font:
+    600 9px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace !important;
+}
+.margin-element-box b {
+  left: -2px !important;
+  border-radius: 3px 0 0 3px !important;
+  background: #dff06f !important;
+}
+.margin-element-box small {
+  left: auto !important;
+  right: -2px !important;
+  border-radius: 0 3px 3px 0 !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 1px #d1d6ce !important;
+}
+.margin-element-box.badge-below b,
+.margin-element-box.badge-below small {
+  top: 5px !important;
+}
+.margin-editor-layer {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 24px !important;
+  background: rgba(15, 20, 18, 0.78) !important;
+  backdrop-filter: blur(4px) !important;
+}
+.margin-editor {
+  display: flex !important;
+  flex-direction: column !important;
+  width: min(1040px, calc(100vw - 48px)) !important;
+  height: min(760px, calc(100vh - 48px)) !important;
+  border: 1px solid #5a625d !important;
+  border-radius: 6px !important;
+  background: #f5f4ee !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42) !important;
+  overflow: hidden !important;
+  font:
+    12px/1.4 "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+  color: #202421 !important;
+}
+.margin-editor header {
+  height: 58px !important;
+  flex: 0 0 58px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 18px !important;
+  border-bottom: 1px solid #d8d8d1 !important;
+  background: #fff !important;
+}
+.margin-editor header > div {
+  display: grid !important;
+  grid-template-columns: 22px auto !important;
+  align-items: center !important;
+  column-gap: 9px !important;
+}
+.margin-editor header strong {
+  font:
+    600 15px Georgia,
+    serif !important;
+}
+.margin-editor header small {
+  grid-column: 2 !important;
+  color: #858b85 !important;
+  font:
+    9px ui-monospace,
+    Menlo,
+    monospace !important;
+}
+.margin-editor-mark {
+  grid-row: 1/3 !important;
+  width: 24px !important;
+  height: 24px !important;
+  object-fit: contain !important;
+}
+.margin-editor header button {
+  width: 32px !important;
+  height: 32px !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  color: #6e746f !important;
+  font-size: 22px !important;
+  cursor: pointer !important;
+}
+.margin-editor header button:hover {
+  background: #efeee8 !important;
+}
+.margin-workspace {
+  min-height: 0 !important;
+  flex: 1 !important;
+  display: grid !important;
+  grid-template-columns: 68px 1fr !important;
+}
+.margin-tools {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 13px 0 !important;
+  border-right: 1px solid #d8d8d1 !important;
+  background: #fff !important;
+}
+.margin-tools button {
+  width: 50px !important;
+  height: 48px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 1px !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: #6d736e !important;
+  cursor: pointer !important;
+}
+.margin-tools button:hover {
+  background: #f2f1eb !important;
+}
+.margin-tools button.active {
+  border-color: #325f52 !important;
+  background: #edf2ef !important;
+  color: #24483e !important;
+}
+.margin-tools button span {
+  font:
+    18px Georgia,
+    serif !important;
+}
+.margin-tools button small {
+  font:
+    8px ui-monospace,
+    Menlo,
+    monospace !important;
+}
+.margin-tools i {
+  width: 32px !important;
+  height: 1px !important;
+  margin: 3px 0 !important;
+  background: #dddcd5 !important;
+}
+.margin-canvas-wrap {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 22px !important;
+  background-color: #dadbd6 !important;
+  background-image:
+    linear-gradient(45deg, #d1d2cd 25%, transparent 25%),
+    linear-gradient(-45deg, #d1d2cd 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #d1d2cd 75%),
+    linear-gradient(-45deg, transparent 75%, #d1d2cd 75%) !important;
+  background-size: 20px 20px !important;
+  background-position:
+    0 0,
+    0 10px,
+    10px -10px,
+    -10px 0 !important;
+  overflow: hidden !important;
+}
+.margin-canvas-wrap canvas {
+  display: block !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  background: #fff !important;
+  box-shadow: 0 8px 28px rgba(25, 31, 28, 0.2) !important;
+  cursor: crosshair !important;
+  touch-action: none !important;
+}
+.margin-editor footer {
+  height: 60px !important;
+  flex: 0 0 60px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 0 18px !important;
+  border-top: 1px solid #d8d8d1 !important;
+  background: #fff !important;
+}
+.margin-editor footer > span {
+  color: #747b75 !important;
+  font-size: 9px !important;
+}
+.margin-editor footer > span i {
+  display: inline-block !important;
+  width: 9px !important;
+  height: 9px !important;
+  margin-right: 6px !important;
+  border-radius: 50% !important;
+  background: #ee5c48 !important;
+  vertical-align: -1px !important;
+}
+.margin-editor footer button {
+  height: 36px !important;
+  padding: 0 15px !important;
+  border-radius: 4px !important;
+  font:
+    600 11px "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+  cursor: pointer !important;
+}
+.margin-cancel {
+  border: 1px solid #d8d8d1 !important;
+  background: #fff !important;
+  color: #535a55 !important;
+  margin-right: 7px !important;
+}
+.margin-save {
+  border: 0 !important;
+  background: #202421 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 0 #060807 !important;
+}
+.margin-save b {
+  margin-left: 7px !important;
+  color: #dff06f !important;
+}
+.margin-save:disabled {
+  cursor: wait !important;
+  opacity: 0.72 !important;
+}
+.margin-toast {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  right: 24px !important;
+  bottom: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  padding: 12px 15px !important;
+  border: 1px solid #3e4641 !important;
+  border-radius: 4px !important;
+  background: #202421 !important;
+  color: #fff !important;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24) !important;
+  font:
+    600 11px "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+  opacity: 0 !important;
+  transform: translateY(8px) !important;
+  transition: 0.2s !important;
+}
+.margin-toast.visible {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+.margin-toast span {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #dff06f !important;
+}
+
+.doppie-review-layer,
+.doppie-review-layer * {
+  box-sizing: border-box !important;
+  letter-spacing: 0 !important;
+}
+.doppie-reviewing,
+.doppie-reviewing body,
+.doppie-reviewing body * {
+  cursor: crosshair !important;
+}
+.doppie-review-layer {
+  position: fixed !important;
+  z-index: 2147483646 !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  color: #202421 !important;
+  font:
+    12px/1.35 "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+}
+.doppie-review-layer button,
+.doppie-review-layer select,
+.doppie-label-options label {
+  cursor: pointer !important;
+  font: inherit !important;
+}
+.doppie-review-layer textarea {
+  cursor: text !important;
+  font: inherit !important;
+}
+.doppie-review-layer button:disabled {
+  cursor: not-allowed !important;
+}
+.doppie-ui-icon {
+  width: 13px !important;
+  height: 13px !important;
+  flex: 0 0 auto !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+.doppie-review-tip {
+  position: fixed !important;
+  z-index: 5 !important;
+  top: 18px !important;
+  left: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  min-height: 44px !important;
+  padding: 6px 14px 6px 8px !important;
+  border: 1px solid #424b46 !important;
+  border-radius: 8px !important;
+  background: #202421 !important;
+  color: #fff !important;
+  box-shadow: 0 10px 32px rgba(15, 20, 18, 0.24) !important;
+  transform: translateX(-50%) !important;
+}
+.doppie-review-tip img {
+  width: 30px !important;
+  height: 30px !important;
+  object-fit: contain !important;
+}
+.doppie-review-tip span,
+.doppie-review-tip strong,
+.doppie-review-tip small {
+  display: block !important;
+}
+.doppie-review-tip strong {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+}
+.doppie-review-tip small {
+  margin-top: 1px !important;
+  color: #b9c3bd !important;
+  font-size: 9px !important;
+  white-space: nowrap !important;
+}
+.doppie-hover-box {
+  position: fixed !important;
+  z-index: 2 !important;
+  display: none !important;
+  border: 2px solid #dff06f !important;
+  border-radius: 3px !important;
+  background: rgba(223, 240, 111, 0.12) !important;
+  box-shadow:
+    0 0 0 1px #325f52,
+    0 6px 24px rgba(21, 35, 29, 0.18) !important;
+}
+.doppie-hover-box.visible {
+  display: block !important;
+}
+.doppie-hover-box b,
+.doppie-hover-box small {
+  position: absolute !important;
+  top: -27px !important;
+  height: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 7px !important;
+  white-space: nowrap !important;
+  font:
+    600 9px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace !important;
+}
+.doppie-hover-box b {
+  left: -2px !important;
+  border-radius: 3px 0 0 3px !important;
+  background: #dff06f !important;
+  color: #202421 !important;
+}
+.doppie-hover-box small {
+  right: -2px !important;
+  border-radius: 0 3px 3px 0 !important;
+  background: #fff !important;
+  color: #535a55 !important;
+  box-shadow: 0 0 0 1px #d1d6ce !important;
+}
+.doppie-hover-box.badge-below b,
+.doppie-hover-box.badge-below small {
+  top: 5px !important;
+}
+.doppie-hover-box.selected {
+  border-color: #f06a45 !important;
+  background: rgba(240, 106, 69, 0.1) !important;
+  box-shadow:
+    0 0 0 1px #a43f29,
+    0 8px 28px rgba(52, 30, 23, 0.2) !important;
+}
+.doppie-hover-box.selected b {
+  background: #f06a45 !important;
+  color: #fff !important;
+}
+.doppie-pins {
+  position: fixed !important;
+  z-index: 6 !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+}
+.doppie-annotation-pin {
+  position: fixed !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 2px solid #fff !important;
+  border-radius: 50% !important;
+  background: #f06a45 !important;
+  color: #fff !important;
+  box-shadow:
+    0 0 0 1px #9a3a25,
+    0 5px 14px rgba(32, 36, 33, 0.28) !important;
+  pointer-events: auto !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+}
+.doppie-annotation-pin.creating {
+  background: #325f52 !important;
+  animation: doppie-pulse 0.9s ease-in-out infinite alternate !important;
+}
+.doppie-annotation-pin.success {
+  background: #4f8d69 !important;
+}
+.doppie-annotation-pin.failed {
+  background: #b53c34 !important;
+}
+@keyframes doppie-pulse {
+  to {
+    transform: scale(0.86);
+    opacity: 0.7;
+  }
+}
+.doppie-note-popover {
+  position: fixed !important;
+  z-index: 9 !important;
+  width: 304px !important;
+  display: none !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  border: 1px solid #c7cec9 !important;
+  border-top: 3px solid #f06a45 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  box-shadow:
+    0 24px 64px rgba(18, 25, 21, 0.2),
+    0 4px 14px rgba(18, 25, 21, 0.1) !important;
+  pointer-events: auto !important;
+}
+.doppie-note-popover.visible {
+  display: block !important;
+  animation: doppie-pop-in 0.16s ease-out both !important;
+}
+@keyframes doppie-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.985);
+  }
+}
+.doppie-note-popover header,
+.doppie-review-panel > header {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 46px !important;
+  padding: 7px 9px !important;
+  border-bottom: 1px solid #e4e8e4 !important;
+  background: #f8faf8 !important;
+}
+.doppie-review-panel > header {
+  min-height: 54px !important;
+  padding: 10px 12px !important;
+}
+.doppie-note-number {
+  flex: 0 0 auto !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: grid !important;
+  place-items: center !important;
+  margin-right: 8px !important;
+  border-radius: 50% !important;
+  background: #f06a45 !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+.doppie-note-popover header div,
+.doppie-review-panel > header div {
+  min-width: 0 !important;
+  flex: 1 !important;
+}
+.doppie-note-popover header strong,
+.doppie-note-popover header small,
+.doppie-review-panel > header strong,
+.doppie-review-panel > header small {
+  display: block !important;
+}
+.doppie-note-popover header strong {
+  font-family: Georgia, serif !important;
+  font-size: 15px !important;
+}
+.doppie-note-popover header small {
+  overflow: hidden !important;
+  margin-top: 1px !important;
+  color: #6c746f !important;
+  font:
+    9px ui-monospace,
+    Menlo,
+    monospace !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+.doppie-note-popover header button,
+.doppie-review-panel > header button {
+  width: 26px !important;
+  height: 26px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #6d746f !important;
+  font-size: 20px !important;
+}
+.doppie-review-panel > header button {
+  width: 30px !important;
+  height: 30px !important;
+}
+.doppie-note-popover header button:hover,
+.doppie-review-panel > header button:hover {
+  border-radius: 50% !important;
+  background: #e9eeea !important;
+  color: #202421 !important;
+}
+.doppie-note-popover textarea {
+  width: calc(100% - 20px) !important;
+  height: 78px !important;
+  margin: 9px 10px 0 !important;
+  padding: 9px !important;
+  resize: none !important;
+  border: 1px solid #d6ddd8 !important;
+  border-radius: 8px !important;
+  outline: 0 !important;
+  background: #f5f7f5 !important;
+  color: #202421 !important;
+  font-size: 12px !important;
+}
+.doppie-note-popover textarea:focus {
+  border-color: #325f52 !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgba(50, 95, 82, 0.12) !important;
+}
+.doppie-note-error {
+  min-height: 13px !important;
+  margin: 3px 11px 0 !important;
+  color: #b53c34 !important;
+  font-size: 9px !important;
+}
+.doppie-note-popover footer {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 10px 10px !important;
+}
+.doppie-note-popover footer > span {
+  flex: 1 !important;
+}
+.doppie-note-popover footer button,
+.doppie-session-bar button {
+  min-height: 32px !important;
+  padding: 0 11px !important;
+  border: 1px solid #d1d7d2 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #37403b !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+.doppie-session-bar button {
+  min-height: 36px !important;
+  padding: 0 13px !important;
+}
+.doppie-note-popover footer .doppie-note-save,
+.doppie-submit-review,
+.doppie-session-bar .doppie-review-button {
+  border-color: #325f52 !important;
+  background: #325f52 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 0 #1d4036 !important;
+}
+.doppie-note-popover footer .doppie-note-save {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+}
+.doppie-note-save kbd {
+  min-width: 29px !important;
+  padding: 2px 5px !important;
+  border: 1px solid #080a0b !important;
+  border-radius: 999px !important;
+  background: #e8f76b !important;
+  color: #080a0b !important;
+  font:
+    800 8px "Outfit",
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+}
+.doppie-note-popover footer .doppie-note-save:disabled,
+.doppie-submit-review:disabled,
+.doppie-session-bar button:disabled {
+  cursor: wait !important;
+  opacity: 0.55 !important;
+}
+.doppie-note-remove {
+  display: none !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  color: #b53c34 !important;
+}
+.doppie-note-remove.visible {
+  display: block !important;
+}
+.doppie-session-bar {
+  position: fixed !important;
+  z-index: 7 !important;
+  left: 50% !important;
+  bottom: 18px !important;
+  width: min(590px, calc(100vw - 24px)) !important;
+  min-height: 58px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 7px 8px !important;
+  border: 1px solid #424b46 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  box-shadow: 0 16px 50px rgba(15, 20, 18, 0.28) !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) !important;
+}
+.doppie-session-bar > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.doppie-session-bar img {
+  width: 34px !important;
+  height: 34px !important;
+  object-fit: contain !important;
+}
+.doppie-session-bar span span,
+.doppie-session-bar strong,
+.doppie-session-bar small {
+  display: block !important;
+}
+.doppie-session-bar strong {
+  font-family: Georgia, serif !important;
+  font-size: 13px !important;
+}
+.doppie-session-bar small {
+  margin-top: 1px !important;
+  color: #6d746f !important;
+  font-size: 9px !important;
+}
+.doppie-session-bar small b {
+  color: #325f52 !important;
+}
+.doppie-session-spacer {
+  flex: 1 !important;
+}
+.doppie-session-bar .doppie-review-button b {
+  min-width: 18px !important;
+  height: 18px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  margin-left: 5px !important;
+  border-radius: 50% !important;
+  background: #dff06f !important;
+  color: #24483e !important;
+  font-size: 9px !important;
+}
+.doppie-review-panel {
+  position: fixed !important;
+  z-index: 8 !important;
+  right: 18px !important;
+  bottom: 88px !important;
+  width: min(370px, calc(100vw - 24px)) !important;
+  max-height: calc(100vh - 112px) !important;
+  display: none !important;
+  overflow: hidden auto !important;
+  border: 1px solid #aeb7b1 !important;
+  border-radius: 8px !important;
+  background: #f8faf8 !important;
+  box-shadow: 0 22px 65px rgba(18, 25, 21, 0.32) !important;
+  pointer-events: auto !important;
+}
+.doppie-review-panel.visible {
+  display: block !important;
+  animation: doppie-pop-in 0.18s ease-out both !important;
+}
+.doppie-review-panel > header {
+  position: sticky !important;
+  z-index: 2 !important;
+  top: 0 !important;
+}
+.doppie-review-panel > header small {
+  color: #325f52 !important;
+  font:
+    700 8px ui-monospace,
+    Menlo,
+    monospace !important;
+}
+.doppie-review-panel > header strong {
+  margin-top: 1px !important;
+  font-family: Georgia, serif !important;
+  font-size: 17px !important;
+}
+.doppie-panel-icon {
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 auto !important;
+  display: grid !important;
+  place-items: center !important;
+  margin-right: 10px !important;
+  border-radius: 8px !important;
+  background: #edf2ef !important;
+  color: #325f52 !important;
+}
+.doppie-panel-icon .doppie-ui-icon {
+  width: 17px !important;
+  height: 17px !important;
+}
+.doppie-review-list {
+  max-height: 198px !important;
+  overflow: hidden auto !important;
+  border-bottom: 1px solid #dcddd7 !important;
+  background: #fff !important;
+}
+.doppie-review-item {
+  min-height: 62px !important;
+  display: grid !important;
+  grid-template-columns: 54px 1fr 27px !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 7px 9px !important;
+  border-bottom: 1px solid #ecece7 !important;
+}
+.doppie-review-thumb {
+  position: relative !important;
+  width: 54px !important;
+  height: 42px !important;
+  overflow: hidden !important;
+  border: 1px solid #c9cec8 !important;
+  border-radius: 4px !important;
+  background: #202421 !important;
+}
+.doppie-review-thumb img {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  object-fit: contain !important;
+}
+.doppie-review-thumb span {
+  position: absolute !important;
+  left: 3px !important;
+  bottom: 3px !important;
+  width: 18px !important;
+  height: 18px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid #fff !important;
+  border-radius: 50% !important;
+  background: #f06a45 !important;
+  color: #fff !important;
+  box-shadow: 0 1px 4px rgba(15, 20, 18, 0.28) !important;
+  font-size: 8px !important;
+  font-weight: 800 !important;
+}
+.doppie-review-item.success .doppie-review-thumb span {
+  background: #4f8d69 !important;
+}
+.doppie-review-item.failed .doppie-review-thumb span {
+  background: #b53c34 !important;
+}
+.doppie-review-item > button {
+  min-width: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #202421 !important;
+  text-align: left !important;
+}
+.doppie-review-item > button:last-child {
+  width: 27px !important;
+  height: 27px !important;
+  color: #8b918d !important;
+  font-size: 17px !important;
+  text-align: center !important;
+}
+.doppie-review-item > button[hidden] {
+  display: none !important;
+}
+.doppie-review-item strong,
+.doppie-review-item small {
+  display: block !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+.doppie-review-item strong {
+  font-size: 10px !important;
+}
+.doppie-review-item small,
+.doppie-review-item small a {
+  margin-top: 2px !important;
+  color: #6d746f !important;
+  font-size: 8px !important;
+}
+.doppie-review-item.failed small {
+  color: #b53c34 !important;
+}
+.doppie-routing {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  padding: 10px !important;
+}
+.doppie-routing > label,
+.doppie-routing fieldset {
+  min-width: 0 !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+.doppie-routing > label > span,
+.doppie-routing legend {
+  display: block !important;
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+  color: #5e6661 !important;
+  font:
+    700 8px ui-monospace,
+    Menlo,
+    monospace !important;
+  text-transform: uppercase !important;
+}
+.doppie-routing > label > .doppie-field-label,
+.doppie-routing .doppie-field-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+.doppie-field-label .doppie-ui-icon {
+  width: 11px !important;
+  height: 11px !important;
+  color: #325f52 !important;
+}
+.doppie-routing select {
+  width: 100% !important;
+  height: 34px !important;
+  padding: 0 27px 0 9px !important;
+  border: 1px solid #cdd1cb !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #202421 !important;
+  font-size: 10px !important;
+}
+.doppie-routing fieldset {
+  grid-column: 1 / -1 !important;
+}
+.doppie-label-options {
+  max-height: 82px !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 4px !important;
+  overflow: hidden auto !important;
+  padding: 6px !important;
+  border: 1px solid #cdd1cb !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+}
+.doppie-label-options > label {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 3px !important;
+  font-size: 9px !important;
+}
+.doppie-label-options input {
+  width: 12px !important;
+  height: 12px !important;
+  margin: 0 !important;
+}
+.doppie-label-options i {
+  flex: 0 0 auto !important;
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+}
+.doppie-label-options span {
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+.doppie-panel-message {
+  min-height: 16px !important;
+  margin: 0 11px 5px !important;
+  color: #5e6661 !important;
+  font-size: 9px !important;
+}
+.doppie-submit-review {
+  width: calc(100% - 20px) !important;
+  height: 39px !important;
+  margin: 0 10px 10px !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+@media (max-width: 620px) {
+  .doppie-review-tip {
+    max-width: calc(100vw - 24px) !important;
+  }
+  .doppie-review-tip small {
+    overflow: hidden !important;
+    max-width: 230px !important;
+    text-overflow: ellipsis !important;
+  }
+  .doppie-note-popover {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 86px !important;
+    top: auto !important;
+    width: auto !important;
+  }
+  .doppie-review-panel {
+    right: 12px !important;
+    bottom: 86px !important;
+  }
+  .doppie-session-bar > div span {
+    display: none !important;
+  }
+}
+
+/* Dopamina product theme */
+.margin-highlight {
+  background: #e8f76b !important;
+  border-bottom: 2px solid #515193 !important;
+}
+.margin-capture-layer:before {
+  background: rgba(8, 10, 11, 0.6) !important;
+}
+.margin-capture-tip,
+.margin-element-tip,
+.doppie-review-tip {
+  border: 2px solid #080a0b !important;
+  border-radius: 7px !important;
+  background: #515193 !important;
+  color: #fff !important;
+  box-shadow: 5px 6px 0 #080a0b !important;
+  font-family: "Outfit", "Avenir Next", "Segoe UI", sans-serif !important;
+}
+.margin-capture-tip small,
+.margin-element-tip small,
+.doppie-review-tip small {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+.margin-target,
+.margin-element-symbol {
+  border-color: #080a0b !important;
+}
+.margin-target:before,
+.margin-target:after,
+.margin-element-symbol {
+  background: #e8f76b !important;
+}
+.margin-selection-box,
+.margin-element-box,
+.doppie-hover-box {
+  border: 3px solid #e8f76b !important;
+  border-radius: 2px !important;
+  background: rgba(232, 247, 107, 0.14) !important;
+  box-shadow: 0 0 0 2px #080a0b !important;
+}
+.margin-selection-box {
+  box-shadow:
+    0 0 0 2px #080a0b,
+    0 0 0 9999px rgba(8, 10, 11, 0.62) !important;
+}
+.margin-selection-box span {
+  background: #e8f76b !important;
+  border-color: #080a0b !important;
+}
+.margin-selection-box b,
+.margin-element-box b,
+.doppie-hover-box b {
+  border-radius: 2px 0 0 2px !important;
+  background: #e8f76b !important;
+  color: #080a0b !important;
+  box-shadow: 0 0 0 1px #080a0b !important;
+}
+.margin-element-box small,
+.doppie-hover-box small {
+  border-radius: 0 2px 2px 0 !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 0 0 0 1px #080a0b !important;
+}
+.margin-editor-layer {
+  background: rgba(8, 10, 11, 0.74) !important;
+  backdrop-filter: blur(2px) !important;
+}
+.margin-editor {
+  border: 2px solid #080a0b !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 14px 16px 0 rgba(8, 10, 11, 0.62) !important;
+  font-family: "Outfit", "Avenir Next", "Segoe UI", sans-serif !important;
+}
+.margin-editor header {
+  border-bottom: 2px solid #080a0b !important;
+  background: #fff !important;
+}
+.margin-editor header strong {
+  font-family: "Outfit", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 750 !important;
+}
+.margin-editor header small {
+  color: #62584c !important;
+}
+.margin-editor header button {
+  border: 1px solid transparent !important;
+  color: #080a0b !important;
+}
+.margin-editor header button:hover {
+  border-color: #080a0b !important;
+  background: #f0c98a !important;
+}
+.margin-tools {
+  border-right: 2px solid #080a0b !important;
+  background: #fff !important;
+}
+.margin-tools button {
+  border-radius: 2px !important;
+  color: #62584c !important;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease !important;
+}
+.margin-tools button:hover {
+  border-color: #080a0b !important;
+  background: #f7efd9 !important;
+}
+.margin-tools button.active {
+  border: 2px solid #080a0b !important;
+  background: #e8f76b !important;
+  color: #080a0b !important;
+  box-shadow: 3px 3px 0 #080a0b !important;
+  transform: translate(-1px, -1px) !important;
+}
+.margin-tools button span {
+  font-family: "DM Serif Display", Georgia, serif !important;
+}
+.margin-tools i {
+  background: rgba(8, 10, 11, 0.22) !important;
+}
+.margin-canvas-wrap {
+  background-color: #f4f0e8 !important;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 31px,
+    rgba(155, 200, 212, 0.42) 31px,
+    rgba(155, 200, 212, 0.42) 32px
+  ) !important;
+}
+.margin-canvas-wrap canvas {
+  border: 2px solid #080a0b !important;
+  box-shadow: 8px 9px 0 rgba(8, 10, 11, 0.18) !important;
+}
+.margin-editor footer {
+  border-top: 2px solid #080a0b !important;
+  background: #fff !important;
+}
+.margin-editor footer > span {
+  color: #62584c !important;
+}
+.margin-editor footer > span i {
+  background: #f83505 !important;
+}
+.margin-editor footer button {
+  border-radius: 999px !important;
+  font-family: "Outfit", sans-serif !important;
+  font-weight: 700 !important;
+}
+.margin-cancel {
+  border: 2px solid #080a0b !important;
+  background: #fff !important;
+  color: #080a0b !important;
+}
+.margin-save {
+  border: 2px solid #080a0b !important;
+  background: #515193 !important;
+  color: #fff !important;
+  box-shadow: 3px 3px 0 #080a0b !important;
+}
+.margin-save b {
+  color: #e8f76b !important;
+}
+.margin-toast {
+  border: 2px solid #080a0b !important;
+  border-left: 7px solid #f83505 !important;
+  border-radius: 2px !important;
+  background: #fffaf0 !important;
+  color: #080a0b !important;
+  box-shadow: 6px 7px 0 #080a0b !important;
+  font-family: "Outfit", sans-serif !important;
+}
+.margin-toast span {
+  border: 1px solid #080a0b !important;
+  background: #e8f76b !important;
+}
+.doppie-review-layer {
+  color: #080a0b !important;
+  font-family: "Outfit", "Avenir Next", "Segoe UI", sans-serif !important;
+}
+.doppie-hover-box.selected {
+  border-color: #f83505 !important;
+  background: rgba(248, 53, 5, 0.1) !important;
+  box-shadow: 0 0 0 2px #080a0b !important;
+}
+.doppie-hover-box.selected b {
+  background: #f83505 !important;
+  color: #fff !important;
+}
+.doppie-annotation-pin {
+  border: 2px solid #080a0b !important;
+  background: #f83505 !important;
+  box-shadow: 3px 3px 0 #080a0b !important;
+}
+.doppie-annotation-pin.creating {
+  background: #515193 !important;
+}
+.doppie-annotation-pin.success {
+  background: #027f50 !important;
+}
+.doppie-annotation-pin.failed {
+  background: #f83505 !important;
+}
+.doppie-note-popover {
+  border: 2px solid #080a0b !important;
+  border-top: 7px solid #f83505 !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  box-shadow: 8px 9px 0 rgba(8, 10, 11, 0.28) !important;
+}
+.doppie-note-popover header,
+.doppie-review-panel > header {
+  border-bottom: 2px solid #080a0b !important;
+  background: #fff !important;
+}
+.doppie-note-number {
+  border: 2px solid #080a0b !important;
+  background: #e8f76b !important;
+  color: #080a0b !important;
+  box-shadow: 2px 2px 0 #080a0b !important;
+}
+.doppie-note-popover header strong,
+.doppie-review-panel > header strong,
+.doppie-session-bar strong {
+  font-family: "Outfit", sans-serif !important;
+  font-weight: 750 !important;
+}
+.doppie-note-popover header small,
+.doppie-review-panel > header small,
+.doppie-session-bar small {
+  color: #62584c !important;
+}
+.doppie-note-popover header button,
+.doppie-review-panel > header button {
+  color: #080a0b !important;
+}
+.doppie-note-popover header button:hover,
+.doppie-review-panel > header button:hover {
+  background: #f0c98a !important;
+}
+.doppie-note-popover textarea {
+  border: 2px solid #080a0b !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 2px 2px 0 rgba(8, 10, 11, 0.16) !important;
+}
+.doppie-note-popover textarea:focus {
+  border-color: #080a0b !important;
+  box-shadow:
+    2px 2px 0 #080a0b,
+    0 0 0 4px rgba(232, 247, 107, 0.72) !important;
+}
+.doppie-note-error {
+  color: #f83505 !important;
+}
+.doppie-note-popover footer button,
+.doppie-session-bar button {
+  border: 2px solid #080a0b !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease !important;
+}
+.doppie-note-popover footer button:hover,
+.doppie-session-bar button:hover:not(:disabled) {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 3px 3px 0 #080a0b !important;
+}
+.doppie-note-popover footer .doppie-note-save,
+.doppie-submit-review,
+.doppie-session-bar .doppie-review-button {
+  border: 2px solid #080a0b !important;
+  background: #515193 !important;
+  color: #fff !important;
+  box-shadow: 3px 3px 0 #080a0b !important;
+}
+.doppie-note-remove {
+  color: #f83505 !important;
+}
+.doppie-session-bar {
+  border: 2px solid #080a0b !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  box-shadow: 7px 8px 0 rgba(8, 10, 11, 0.25) !important;
+}
+.doppie-session-bar small b,
+.doppie-field-label .doppie-ui-icon {
+  color: #515193 !important;
+}
+.doppie-session-bar .doppie-review-button b {
+  border: 1px solid #080a0b !important;
+  background: #e8f76b !important;
+  color: #080a0b !important;
+}
+.doppie-review-panel {
+  border: 2px solid #080a0b !important;
+  border-radius: 7px !important;
+  background: #fff !important;
+  box-shadow: 9px 10px 0 rgba(8, 10, 11, 0.3) !important;
+}
+.doppie-review-panel > header small {
+  color: #f83505 !important;
+}
+.doppie-panel-icon {
+  border: 2px solid #080a0b !important;
+  border-radius: 3px !important;
+  background: #e8f76b !important;
+  color: #515193 !important;
+  box-shadow: 2px 2px 0 #080a0b !important;
+}
+.doppie-review-list {
+  border-bottom: 2px solid #080a0b !important;
+  background: #fff !important;
+}
+.doppie-review-item {
+  border-bottom-color: rgba(8, 10, 11, 0.16) !important;
+}
+.doppie-review-item:hover {
+  background: rgba(232, 247, 107, 0.2) !important;
+}
+.doppie-review-thumb {
+  border: 2px solid #080a0b !important;
+  border-radius: 2px !important;
+  background: #080a0b !important;
+  box-shadow: 2px 2px 0 rgba(8, 10, 11, 0.18) !important;
+}
+.doppie-review-thumb span {
+  border: 1px solid #080a0b !important;
+  background: #f83505 !important;
+  box-shadow: 1px 1px 0 #080a0b !important;
+}
+.doppie-review-item.success .doppie-review-thumb span {
+  background: #027f50 !important;
+}
+.doppie-review-item.failed .doppie-review-thumb span {
+  background: #f83505 !important;
+}
+.doppie-review-item > button {
+  color: #080a0b !important;
+}
+.doppie-review-item small,
+.doppie-review-item small a,
+.doppie-panel-message {
+  color: #62584c !important;
+}
+.doppie-routing > label > span,
+.doppie-routing legend {
+  color: #080a0b !important;
+}
+.doppie-routing select,
+.doppie-label-options {
+  border: 2px solid #080a0b !important;
+  border-radius: 2px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 2px 2px 0 rgba(8, 10, 11, 0.14) !important;
+}
+.doppie-routing select:focus {
+  outline: 3px solid rgba(232, 247, 107, 0.76) !important;
+  outline-offset: 1px !important;
+}
+.doppie-label-options > label:hover {
+  background: rgba(232, 247, 107, 0.3) !important;
+}
+.doppie-label-options input {
+  accent-color: #515193 !important;
+}
+.doppie-submit-review {
+  border-radius: 999px !important;
+}
+
+/* Per-issue review editor */
+.doppie-review-panel {
+  width: min(430px, calc(100vw - 24px)) !important;
+}
+.doppie-review-item {
+  grid-template-columns: 54px minmax(0, 1fr) 29px 29px !important;
+}
+.doppie-review-item > .doppie-item-edit,
+.doppie-review-item > .doppie-item-delete {
+  width: 28px !important;
+  height: 28px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 2px solid #080a0b !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 2px 2px 0 rgba(8, 10, 11, 0.2) !important;
+  cursor: pointer !important;
+  text-align: center !important;
+}
+.doppie-review-item > .doppie-item-edit:hover,
+.doppie-review-item > .doppie-item-delete:hover {
+  background: #e8f76b !important;
+}
+.doppie-review-item > .doppie-item-edit .doppie-ui-icon {
+  width: 13px !important;
+  height: 13px !important;
+}
+.doppie-review-item > .doppie-item-delete {
+  color: #f83505 !important;
+  font-size: 17px !important;
+  line-height: 1 !important;
+}
+.doppie-review-item > button[hidden] {
+  display: none !important;
+}
+.doppie-review-panel.editing-item .doppie-review-list {
+  max-height: min(470px, calc(100vh - 150px)) !important;
+}
+.doppie-review-panel.editing-item .doppie-routing,
+.doppie-review-panel.editing-item .doppie-panel-message,
+.doppie-review-panel.editing-item .doppie-submit-review {
+  display: none !important;
+}
+.doppie-item-editor {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+  padding: 12px !important;
+  border-bottom: 2px solid #080a0b !important;
+  background: #fffaf0 !important;
+}
+.doppie-item-field,
+.doppie-item-routing > label,
+.doppie-item-routing fieldset {
+  min-width: 0 !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+.doppie-item-field-wide,
+.doppie-use-defaults,
+.doppie-item-routing,
+.doppie-item-error,
+.doppie-item-editor > footer {
+  grid-column: 1 / -1 !important;
+}
+.doppie-item-editor .doppie-field-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  margin: 0 0 4px !important;
+  color: #080a0b !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+.doppie-item-editor .doppie-field-label .doppie-ui-icon {
+  width: 12px !important;
+  height: 12px !important;
+  color: #515193 !important;
+}
+.doppie-item-editor input[type="text"],
+.doppie-item-editor input:not([type]),
+.doppie-item-editor textarea,
+.doppie-item-editor select {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: 2px solid #080a0b !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 2px 2px 0 rgba(8, 10, 11, 0.16) !important;
+  font:
+    500 11px "Outfit",
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+}
+.doppie-item-editor input[type="text"],
+.doppie-item-editor input:not([type]),
+.doppie-item-editor select {
+  height: 34px !important;
+  padding: 0 9px !important;
+}
+.doppie-item-editor textarea {
+  min-height: 72px !important;
+  resize: vertical !important;
+  padding: 8px 9px !important;
+  line-height: 1.35 !important;
+}
+.doppie-item-editor input:focus,
+.doppie-item-editor textarea:focus,
+.doppie-item-editor select:focus {
+  outline: 3px solid rgba(232, 247, 107, 0.8) !important;
+  outline-offset: 1px !important;
+}
+.doppie-use-defaults {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+}
+.doppie-use-defaults input {
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 !important;
+  accent-color: #515193 !important;
+}
+.doppie-item-routing {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  transition: opacity 0.16s ease !important;
+}
+.doppie-item-routing.disabled {
+  opacity: 0.48 !important;
+}
+.doppie-item-routing fieldset {
+  grid-column: 1 / -1 !important;
+}
+.doppie-item-labels {
+  max-height: 72px !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 3px !important;
+  overflow: hidden auto !important;
+  padding: 6px !important;
+  border: 2px solid #080a0b !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+}
+.doppie-item-labels > label {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 3px !important;
+  font-size: 9px !important;
+}
+.doppie-item-labels input {
+  width: 12px !important;
+  height: 12px !important;
+  margin: 0 !important;
+  accent-color: #515193 !important;
+}
+.doppie-item-labels i {
+  width: 7px !important;
+  height: 7px !important;
+  flex: 0 0 auto !important;
+  border-radius: 50% !important;
+}
+.doppie-item-labels span {
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+.doppie-item-error {
+  min-height: 13px !important;
+  margin: 0 !important;
+  color: #f83505 !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+}
+.doppie-item-editor > footer {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 7px !important;
+}
+.doppie-item-editor > footer button {
+  min-height: 32px !important;
+  padding: 0 13px !important;
+  border: 2px solid #080a0b !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 2px 2px 0 #080a0b !important;
+  cursor: pointer !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+}
+.doppie-item-editor > footer .doppie-item-save {
+  background: #515193 !important;
+  color: #fff !important;
+}
+
+/* Review session intelligence */
+.doppie-note-type {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 7px 10px 0 !important;
+}
+.doppie-note-type span {
+  color: #080a0b !important;
+  font-size: 8px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+.doppie-note-type select {
+  width: 118px !important;
+  height: 27px !important;
+  padding: 0 22px 0 7px !important;
+  border: 2px solid #080a0b !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  font:
+    700 9px "Outfit",
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+}
+.doppie-review-options {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  padding: 9px 10px !important;
+  border-bottom: 2px solid #080a0b !important;
+  background: #fffaf0 !important;
+}
+.doppie-review-options > label {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.doppie-review-options > label[hidden] {
+  display: none !important;
+}
+.doppie-review-options input {
+  width: 15px !important;
+  height: 15px !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  accent-color: #515193 !important;
+}
+.doppie-review-options label span,
+.doppie-review-options label strong,
+.doppie-review-options label small {
+  min-width: 0 !important;
+  display: block !important;
+}
+.doppie-review-options label strong {
+  font-size: 10px !important;
+}
+.doppie-review-options label small,
+.doppie-review-options > div {
+  color: #62584c !important;
+  font-size: 8px !important;
+}
+.doppie-review-options > div {
+  flex: 0 0 auto !important;
+  white-space: nowrap !important;
+}
+.doppie-review-options > div b {
+  color: #515193 !important;
+}
+.doppie-review-panel.editing-item .doppie-review-options {
+  display: none !important;
+}
+.doppie-context-preview {
+  border-bottom: 2px solid #080a0b !important;
+  background: #fff !important;
+}
+.doppie-context-preview[hidden] {
+  display: none !important;
+}
+.doppie-context-preview summary {
+  padding: 7px 10px !important;
+  color: #515193 !important;
+  cursor: pointer !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+}
+.doppie-context-preview > div {
+  max-height: 150px !important;
+  overflow: hidden auto !important;
+  padding: 0 12px 9px !important;
+}
+.doppie-context-preview > div > strong {
+  display: block !important;
+  margin: 5px 0 3px !important;
+  font-size: 9px !important;
+}
+.doppie-context-preview ol,
+.doppie-context-preview ul {
+  margin: 0 !important;
+  padding-left: 18px !important;
+  color: #62584c !important;
+  font-size: 9px !important;
+  line-height: 1.4 !important;
+}
+.doppie-review-panel.editing-item .doppie-context-preview {
+  display: none !important;
+}
+.doppie-flow-composer {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 132px !important;
+  gap: 10px !important;
+  padding: 12px !important;
+  background: #fffaf0 !important;
+}
+.doppie-review-list.flow-only {
+  max-height: none !important;
+  overflow: visible !important;
+}
+.doppie-flow-composer-heading,
+.doppie-flow-composer-heading div,
+.doppie-flow-composer-heading strong,
+.doppie-flow-composer-heading small {
+  min-width: 0 !important;
+}
+.doppie-flow-composer-heading {
+  grid-column: 1 / -1 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+.doppie-flow-composer-heading > span {
+  width: 30px !important;
+  height: 30px !important;
+  display: grid !important;
+  flex: 0 0 auto !important;
+  place-items: center !important;
+  border: 2px solid #080a0b !important;
+  border-radius: 50% !important;
+  background: #f83505 !important;
+  color: #fff !important;
+  box-shadow: 2px 2px 0 #080a0b !important;
+}
+.doppie-flow-composer-heading strong,
+.doppie-flow-composer-heading small {
+  display: block !important;
+}
+.doppie-flow-composer-heading strong {
+  font-size: 11px !important;
+}
+.doppie-flow-composer-heading small {
+  margin-top: 1px !important;
+  color: #62584c !important;
+  font-size: 8px !important;
+}
+.doppie-flow-composer > label {
+  display: grid !important;
+  gap: 4px !important;
+}
+.doppie-flow-composer .doppie-flow-request {
+  grid-column: 1 / -1 !important;
+}
+.doppie-flow-composer input,
+.doppie-flow-composer select,
+.doppie-flow-composer textarea {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  border: 2px solid #080a0b !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  color: #080a0b !important;
+  box-shadow: 2px 2px 0 rgba(8, 10, 11, 0.16) !important;
+  font:
+    600 10px "Outfit",
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif !important;
+}
+.doppie-flow-composer input,
+.doppie-flow-composer select {
+  height: 34px !important;
+  padding: 0 9px !important;
+}
+.doppie-flow-composer textarea {
+  min-height: 62px !important;
+  padding: 8px 9px !important;
+  resize: vertical !important;
+}
+.doppie-flow-composer input:focus,
+.doppie-flow-composer select:focus,
+.doppie-flow-composer textarea:focus {
+  outline: 3px solid rgba(232, 247, 107, 0.76) !important;
+  outline-offset: 1px !important;
+}
+.doppie-flow-composer.success {
+  background: rgba(232, 247, 107, 0.18) !important;
+}
+.doppie-flow-composer.success .doppie-flow-composer-heading > span {
+  background: #027f50 !important;
+}
+.doppie-session-bar {
+  width: min(720px, calc(100vw - 24px)) !important;
+}
+.doppie-session-bar .doppie-record-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border-color: #080a0b !important;
+  background: #fffaf0 !important;
+}
+.doppie-record-button .doppie-ui-icon {
+  width: 11px !important;
+  height: 11px !important;
+  color: #f83505 !important;
+}
+.doppie-record-button b {
+  min-width: 18px !important;
+  height: 18px !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  border: 1px solid #080a0b !important;
+  border-radius: 50% !important;
+  background: #e8f76b !important;
+  color: #080a0b !important;
+  font-size: 8px !important;
+}
+.doppie-session-bar .doppie-record-button.recording {
+  background: #f83505 !important;
+  color: #fff !important;
+}
+.doppie-record-button.recording .doppie-ui-icon {
+  color: #fff !important;
+}
+.doppie-record-button.recording b {
+  background: #fff !important;
+}
+.doppie-recording .doppie-hover-box {
+  display: none !important;
+}
+
+@media (max-width: 620px) {
+  .doppie-review-item {
+    grid-template-columns: 48px minmax(0, 1fr) 28px 28px !important;
+    gap: 5px !important;
+  }
+  .doppie-item-editor,
+  .doppie-item-routing,
+  .doppie-flow-composer {
+    grid-template-columns: 1fr !important;
+  }
+  .doppie-flow-composer-heading,
+  .doppie-flow-composer .doppie-flow-request {
+    grid-column: 1 !important;
+  }
+  .doppie-item-routing fieldset {
+    grid-column: 1 !important;
+  }
+  .doppie-session-bar .doppie-record-button span {
+    display: none !important;
+  }
+  .doppie-review-options {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .margin-tools button,
+  .doppie-note-popover footer button,
+  .doppie-session-bar button {
+    transition: none !important;
+  }
+}
