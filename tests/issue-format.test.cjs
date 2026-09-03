@@ -55,6 +55,13 @@ test("agent issue format includes developer and route context", () => {
         url: "https://example.test/settings",
       },
     ],
+    sessionVideo: {
+      dataUrl: "data:video/webm;base64,dmlkZW8=",
+      mimeType: "video/webm",
+      size: 4096,
+      durationMs: 6200,
+      recordedAt: "2026-09-03T12:00:00.000Z",
+    },
   });
 
   assert.match(description, /doppie-assist\/v3/);
@@ -67,5 +74,8 @@ test("agent issue format includes developer and route context", () => {
   assert.match(description, /POST · 422 · 84.2ms/);
   assert.match(description, /Session events/);
   assert.match(description, /Save settings/);
+  assert.match(description, /Flow video/);
+  assert.match(description, /6s, 4 KB, no audio/);
   assert.doesNotMatch(description, /data:image/);
+  assert.doesNotMatch(description, /data:video/);
 });

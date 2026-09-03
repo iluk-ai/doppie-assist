@@ -73,6 +73,13 @@ test("listener materializes one browser handoff and exits", async (t) => {
         },
       ],
       sessionEvents: [{ type: "click", message: 'Click button "Save"' }],
+      sessionVideo: {
+        dataUrl: "data:video/webm;base64,dmlkZW8=",
+        mimeType: "video/webm",
+        size: 5,
+        durationMs: 2400,
+        recordedAt: "2026-09-03T12:00:00.000Z",
+      },
     }),
   });
   const result = await response.json();
@@ -85,10 +92,14 @@ test("listener materializes one browser handoff and exits", async (t) => {
   assert.ok(output.annotations[0].screenshotPath.endsWith("annotation-01.png"));
   assert.equal(output.networkRequests[0].status, 200);
   assert.equal(output.sessionEvents[0].type, "click");
+  assert.equal(output.sessionVideo.dataUrl, undefined);
+  assert.ok(output.sessionVideo.path.endsWith("flow-video.webm"));
   assert.equal(await fs.readFile(output.annotations[0].screenshotPath, "utf8"), "hello");
+  assert.equal(await fs.readFile(output.sessionVideo.path, "utf8"), "video");
   const brief = await fs.readFile(result.briefPath, "utf8");
   assert.match(brief, /Tighten spacing/);
   assert.match(brief, /Network activity/);
   assert.match(brief, /Click button "Save"/);
+  assert.match(brief, /flow-video\.webm/);
   await fs.rm(result.directory, { recursive: true, force: true });
 });

@@ -28,8 +28,9 @@ annotations as the user's requested code changes.
    interrupt the wait.
 
 3. Read the `bundlePath` and `briefPath` returned in
-   `DOPPIE_ASSIST_RESULT`. Inspect referenced screenshots when visual evidence
-   affects the requested change.
+   `DOPPIE_ASSIST_RESULT`. Inspect referenced screenshots and the optional
+   `sessionVideo.path` recording when temporal or visual evidence affects the
+   requested change.
 
 4. Match each annotation to the current codebase using its URL path, selectors,
    visible text, sanitized HTML, accessibility data, box model, styles, CSS

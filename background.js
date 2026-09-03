@@ -13,7 +13,9 @@ const RELEASE_ASSET_PATTERN =
 const UPDATE_ALARM = "doppie-assist-update-check";
 const UPDATE_CHECK_MINUTES = 6 * 60;
 const UPDATE_CACHE_MS = UPDATE_CHECK_MINUTES * 60 * 1000;
+const OFFSCREEN_RECORDER_URL = "offscreen.html";
 let refreshPromise = null;
+let offscreenCreatePromise = null;
 
 const versionParts = (value) =>
   String(value || "0")
@@ -110,14 +112,72 @@ const scheduleUpdateChecks = async () => {
   });
 };
 
+const ensureOffscreenRecorder = async () => {
+  const documentUrl = chrome.runtime.getURL(OFFSCREEN_RECORDER_URL);
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT"],
+    documentUrls: [documentUrl],
+  });
+  if (contexts.length) return;
+  if (!offscreenCreatePromise) {
+    offscreenCreatePromise = chrome.offscreen
+      .createDocument({
+        url: OFFSCREEN_RECORDER_URL,
+        reasons: ["USER_MEDIA"],
+        justification: "Record the reviewed tab while the user records a flow",
+      })
+      .finally(() => {
+        offscreenCreatePromise = null;
+      });
+  }
+  await offscreenCreatePromise;
+};
+
+const startFlowVideo = async (tabId, sessionId) => {
+  if (!Number.isInteger(tabId)) throw new Error("No active tab available");
+  await ensureOffscreenRecorder();
+  const streamId = await chrome.tabCapture.getMediaStreamId({
+    targetTabId: tabId,
+  });
+  const response = await chrome.runtime.sendMessage({
+    target: "offscreen",
+    type: "start-flow-video",
+    streamId,
+    sessionId,
+  });
+  if (!response?.ok)
+    throw new Error(response?.error || "Could not start tab recording");
+  return response;
+};
+
+const stopFlowVideo = async (sessionId) => {
+  await ensureOffscreenRecorder();
+  const response = await chrome.runtime.sendMessage({
+    target: "offscreen",
+    type: "stop-flow-video",
+    sessionId,
+  });
+  if (!response?.ok)
+    throw new Error(response?.error || "Could not finish tab recording");
+  return response.video;
+};
+
+const getFlowVideoStatus = async (sessionId) => {
+  await ensureOffscreenRecorder();
+  return chrome.runtime.sendMessage({
+    target: "offscreen",
+    type: "flow-video-status",
+    sessionId,
+  });
+};
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(
-    ["captures", "issues", "linearConfig", "linearAuth", "developerMode"],
+    ["captures", "issues", "linearConfig", "linearAuth"],
     (result) => {
       const updates = {};
       if (!result.captures) updates.captures = [];
       if (!result.issues) updates.issues = [];
-      if (result.developerMode === undefined) updates.developerMode = true;
       if (!result.linearAuth && result.linearConfig?.apiKey) {
         updates.linearAuth = {
           type: "apiKey",
@@ -395,17 +455,17 @@ const connectLinearOAuth = async (providedClientId) => {
 
 const dataUrlToBlob = (dataUrl) => {
   const match =
-    /^data:(image\/(?:jpeg|png|webp));base64,([a-z0-9+/=\s]+)$/i.exec(
+    /^data:((?:image\/(?:jpeg|png|webp))|(?:video\/(?:webm|mp4)));base64,([a-z0-9+/=\s]+)$/i.exec(
       dataUrl || "",
     );
-  if (!match) throw new Error("Screenshot format is not supported");
+  if (!match) throw new Error("Evidence format is not supported");
   const bytes = Uint8Array.from(atob(match[2].replace(/\s/g, "")), (value) =>
     value.charCodeAt(0),
   );
   return new Blob([bytes], { type: match[1].toLowerCase() });
 };
 
-const uploadScreenshotToLinear = async (dataUrl, filename) => {
+const uploadFileToLinear = async (dataUrl, filename) => {
   const file = dataUrlToBlob(dataUrl);
   const data = await linearRequest(
     `mutation DoppieAssistFileUpload(
@@ -434,7 +494,7 @@ const uploadScreenshotToLinear = async (dataUrl, filename) => {
   );
   const upload = data.fileUpload?.uploadFile;
   if (!data.fileUpload?.success || !upload?.uploadUrl || !upload.assetUrl)
-    throw new Error("Linear did not provide a screenshot upload URL");
+    throw new Error("Linear did not provide an evidence upload URL");
 
   const headers = new Headers({
     "Content-Type": file.type,
@@ -447,7 +507,7 @@ const uploadScreenshotToLinear = async (dataUrl, filename) => {
     body: file,
   });
   if (!response.ok)
-    throw new Error(`Screenshot upload failed (${response.status})`);
+    throw new Error(`Evidence upload failed (${response.status})`);
   return upload.assetUrl;
 };
 
@@ -506,6 +566,37 @@ const devBridgeRequest = async (path, options = {}) => {
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.target === "offscreen") return false;
+
+  if (message.type === "open-shortcut-settings") {
+    chrome.tabs
+      .create({ url: "chrome://extensions/shortcuts", active: true })
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "start-flow-video") {
+    startFlowVideo(sender.tab?.id, message.sessionId)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "stop-flow-video") {
+    stopFlowVideo(message.sessionId)
+      .then((video) => sendResponse({ ok: true, video }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "flow-video-status") {
+    getFlowVideoStatus(message.sessionId)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === "check-for-updates") {
     checkForUpdates({ force: Boolean(message.force) })
       .then((result) => sendResponse({ ok: true, ...result }))
@@ -672,13 +763,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               ]
             : []),
           ...(Array.isArray(message.screenshots) ? message.screenshots : []),
+          ...(message.video?.dataUrl?.startsWith("data:video/")
+            ? [
+                {
+                  dataUrl: message.video.dataUrl,
+                  filename: message.video.filename || `doppie-flow-${Date.now()}.webm`,
+                  alt: "Recorded flow video from Doppie Assist",
+                },
+              ]
+            : []),
         ].slice(0, 10);
         if (evidence.length) {
           const images = [];
           for (let index = 0; index < evidence.length; index += 1) {
             const item = evidence[index];
-            if (!item?.dataUrl?.startsWith("data:image/")) continue;
-            const assetUrl = await uploadScreenshotToLinear(
+            if (!item?.dataUrl?.startsWith("data:image/") &&
+                !item?.dataUrl?.startsWith("data:video/"))
+              continue;
+            const assetUrl = await uploadFileToLinear(
               item.dataUrl,
               item.filename || `doppie-evidence-${index + 1}.jpg`,
             );
@@ -686,7 +788,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               /[\[\]]/g,
               "",
             );
-            images.push(`![${alt}](${assetUrl})`);
+            images.push(
+              item.dataUrl.startsWith("data:video/")
+                ? `[${alt}](${assetUrl})`
+                : `![${alt}](${assetUrl})`,
+            );
           }
           if (images.length)
             input.description = `${input.description}\n\n## Evidence\n${images.join("\n\n")}`;

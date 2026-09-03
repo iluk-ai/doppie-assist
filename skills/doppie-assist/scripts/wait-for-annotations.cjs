@@ -53,11 +53,30 @@ const decodeImage = (dataUrl) => {
   };
 };
 
+const decodeVideo = (dataUrl) => {
+  const match = /^data:video\/(webm|mp4);base64,([a-z0-9+/=\s]+)$/i.exec(
+    dataUrl || "",
+  );
+  if (!match) return null;
+  return {
+    extension: match[1].toLowerCase(),
+    bytes: Buffer.from(match[2].replace(/\s/g, ""), "base64"),
+  };
+};
+
 async function writeScreenshot(directory, dataUrl, basename) {
   const image = decodeImage(dataUrl);
   if (!image) return null;
   const file = path.join(directory, `${basename}.${image.extension}`);
   await writeFile(file, image.bytes, { mode: 0o600 });
+  return file;
+}
+
+async function writeSessionVideo(directory, dataUrl) {
+  const video = decodeVideo(dataUrl);
+  if (!video) return null;
+  const file = path.join(directory, `flow-video.${video.extension}`);
+  await writeFile(file, video.bytes, { mode: 0o600 });
   return file;
 }
 
@@ -92,6 +111,13 @@ async function materializeBundle(bundle) {
     );
     delete step.screenshot;
   }
+  if (output.sessionVideo?.dataUrl) {
+    output.sessionVideo.path = await writeSessionVideo(
+      directory,
+      output.sessionVideo.dataUrl,
+    );
+    delete output.sessionVideo.dataUrl;
+  }
 
   const bundlePath = path.join(directory, "bundle.json");
   const briefPath = path.join(directory, "brief.md");
@@ -105,6 +131,7 @@ async function materializeBundle(bundle) {
     `- Network requests: ${(output.networkRequests || []).length}`,
     `- Session events: ${(output.sessionEvents || []).length}`,
     `- Diagnostics: ${(output.diagnostics || []).length}`,
+    `- Flow video: ${output.sessionVideo?.path || "None"}`,
     "",
     ...output.annotations.flatMap((annotation, index) => [
       `## ${index + 1}. ${annotation.title || "Untitled annotation"}`,

@@ -13,6 +13,7 @@ const makeHarness = () => {
   const state = {};
   const badgeTexts = [];
   const badgeTitles = [];
+  const createdTabs = [];
   let messageListener;
   let alarmListener;
   let installedListener;
@@ -32,7 +33,9 @@ const makeHarness = () => {
     commands: { onCommand: { addListener() {} } },
     identity: { getRedirectURL: () => "https://example.chromiumapp.org/linear" },
     runtime: {
-      getManifest: () => ({ version: "0.22.0" }),
+      getManifest: () => ({ version: "0.23.0" }),
+      getURL: (value) => `chrome-extension://test/${value}`,
+      getContexts: async () => [],
       onInstalled: {
         addListener(listener) {
           installedListener = listener;
@@ -61,7 +64,14 @@ const makeHarness = () => {
       },
       session: {},
     },
-    tabs: {},
+    offscreen: { createDocument: async () => {} },
+    tabCapture: { getMediaStreamId: async () => "stream-id" },
+    tabs: {
+      create: async (input) => {
+        createdTabs.push(input);
+        return input;
+      },
+    },
   };
 
   const fetch = async () => {
@@ -105,6 +115,7 @@ const makeHarness = () => {
   return {
     badgeTexts,
     badgeTitles,
+    createdTabs,
     get alarmListener() {
       return alarmListener;
     },
@@ -144,9 +155,20 @@ test("registers the periodic update alarm listener", () => {
   assert.equal(typeof harness.alarmListener, "function");
 });
 
-test("enables developer context by default on installation", async () => {
+test("initializes extension storage without a developer mode preference", async () => {
   const harness = makeHarness();
   harness.installedListener();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(harness.state.developerMode, true);
+  assert.equal(harness.state.developerMode, undefined);
+  assert.equal(harness.state.captures.length, 0);
+  assert.equal(harness.state.issues.length, 0);
+});
+
+test("opens Chrome shortcut settings from the extension UI", async () => {
+  const harness = makeHarness();
+  const response = await harness.sendMessage({ type: "open-shortcut-settings" });
+
+  assert.equal(response.ok, true);
+  assert.equal(harness.createdTabs.length, 1);
+  assert.equal(harness.createdTabs[0].url, "chrome://extensions/shortcuts");
 });

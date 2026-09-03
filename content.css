@@ -1904,9 +1904,27 @@
   text-transform: uppercase !important;
 }
 .doppie-context-preview > div {
-  max-height: 150px !important;
+  max-height: 300px !important;
   overflow: hidden auto !important;
   padding: 0 12px 9px !important;
+}
+.doppie-video-context[hidden] {
+  display: none !important;
+}
+.doppie-video-context video {
+  display: block !important;
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  margin: 4px 0 !important;
+  border: 1px solid #080a0b !important;
+  border-radius: 6px !important;
+  background: #080a0b !important;
+  object-fit: contain !important;
+}
+.doppie-video-context small {
+  display: block !important;
+  color: #62584c !important;
+  font-size: 8px !important;
 }
 .doppie-context-preview > div > strong {
   display: block !important;
@@ -2247,27 +2265,11 @@
 .doppie-review-panel.editing-item .doppie-submit-actions {
   display: none !important;
 }
-.doppie-session-bar .doppie-developer-button {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 5px !important;
-}
-.doppie-session-bar .doppie-developer-button.active {
-  background: #fffaf0 !important;
-}
-.doppie-session-bar .doppie-developer-button.connected {
-  background: #e8f76b !important;
-}
-.doppie-developer-button .doppie-ui-icon {
-  width: 12px !important;
-  height: 12px !important;
-}
 .doppie-session-spacer {
   flex: 1 1 auto !important;
 }
 
 @media (max-width: 720px) {
-  .doppie-session-bar .doppie-developer-button span,
   .doppie-session-bar .doppie-record-button span {
     display: none !important;
   }

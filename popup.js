@@ -3,7 +3,6 @@ let activeTab;
 let latestCapture;
 let currentPriority = 3;
 let linearConfig;
-let developerMode = false;
 let latestRelease = null;
 let updateCheckRunning = false;
 const selectedLabelIds = new Set();
@@ -173,12 +172,9 @@ async function loadState() {
     "linearConfig",
     "lastSelection",
     "pendingComposer",
-    "developerMode",
   ]);
   latestCapture = state.captures?.[0];
   linearConfig = state.linearConfig;
-  developerMode = state.developerMode !== false;
-  $("developer-mode").checked = developerMode;
   if (linearConfig?.apiKey && !Array.isArray(linearConfig.users)) {
     const migrated = await chrome.runtime.sendMessage({
       type: "linear-connect",
@@ -553,13 +549,16 @@ $("project").addEventListener("change", updateRoutingSummary);
 $("label-search").addEventListener("input", (event) =>
   renderLabelList(event.target.value),
 );
-$("edit-shortcuts").addEventListener("click", () =>
-  chrome.tabs.create({ url: "chrome://extensions/shortcuts" }),
-);
-$("developer-mode").addEventListener("change", async (event) => {
-  developerMode = event.target.checked;
-  await chrome.storage.local.set({ developerMode });
-  toast(developerMode ? "Developer context enabled" : "Developer context disabled");
+$("edit-shortcuts").addEventListener("click", async () => {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "open-shortcut-settings",
+    });
+    if (!response?.ok)
+      throw new Error(response?.error || "Could not open shortcut settings");
+  } catch (error) {
+    toast(error.message || "Open chrome://extensions/shortcuts manually");
+  }
 });
 $("check-update").addEventListener("click", () => {
   if ($("check-update").dataset.action === "download")

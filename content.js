@@ -135,16 +135,8 @@ async function startMultiAnnotation() {
     return;
   }
 
-  const {
-    linearConfig,
-    activeReviewSessionDraft,
-    developerMode: savedDeveloperMode,
-  } =
-    await chrome.storage.local.get([
-      "linearConfig",
-      "activeReviewSessionDraft",
-      "developerMode",
-    ]);
+  const { linearConfig, activeReviewSessionDraft } =
+    await chrome.storage.local.get(["linearConfig", "activeReviewSessionDraft"]);
   const draftIsCurrent =
     activeReviewSessionDraft?.origin === location.origin &&
     Date.now() - activeReviewSessionDraft.updatedAt < 8 * 60 * 60 * 1000;
@@ -170,14 +162,15 @@ async function startMultiAnnotation() {
   const networkRequests = [...(restoredDraft?.networkRequests || [])];
   const sessionEvents = [...(restoredDraft?.sessionEvents || [])];
   const reproductionSteps = [...(restoredDraft?.reproductionSteps || [])];
+  let sessionVideo = restoredDraft?.sessionVideo || null;
+  let videoActive = false;
+  let videoStarting = false;
   let recording = Boolean(restoredDraft?.recording);
   let parentMode = Boolean(restoredDraft?.parentMode);
   let parentIssue = restoredDraft?.parentIssue || null;
   let flowIssue = restoredDraft?.flowIssue || null;
   let sharedRoutingDraft = restoredDraft?.sharedRouting || null;
   let defaultFeedbackType = restoredDraft?.defaultFeedbackType || "ui";
-  let developerMode =
-    restoredDraft?.developerMode ?? savedDeveloperMode !== false;
   let devBridgeConnected = false;
   let agentHandoff = restoredDraft?.agentHandoff || null;
   const flowDraft = {
@@ -236,7 +229,7 @@ async function startMultiAnnotation() {
         <label><input type="checkbox" data-review-option="parent" ${parentMode ? "checked" : ""}><span><strong>Group under parent issue</strong><small>One review summary with child issues</small></span></label>
         <div><b data-diagnostic-count>${diagnostics.length}</b> diagnostics <span>·</span> <b data-network-count>${networkRequests.length}</b> requests <span>·</span> <b data-step-count>${reproductionSteps.length}</b> steps</div>
       </div>
-      <details class="doppie-context-preview"><summary>Captured context</summary><div><strong>Reproduction</strong><ol data-context-steps></ol><strong>Network</strong><ul data-context-network></ul><strong>Session events</strong><ul data-context-events></ul><strong>Diagnostics</strong><ul data-context-diagnostics></ul></div></details>
+      <details class="doppie-context-preview"><summary>Captured context</summary><div><div class="doppie-video-context" data-context-video hidden><strong>Flow video</strong><video controls muted playsinline preload="metadata"></video><small></small></div><strong>Reproduction</strong><ol data-context-steps></ol><strong>Network</strong><ul data-context-network></ul><strong>Session events</strong><ul data-context-events></ul><strong>Diagnostics</strong><ul data-context-diagnostics></ul></div></details>
       <div class="doppie-routing">
         <label><span class="doppie-field-label">${doppieUiIcon("team")}Team</span><select data-route="team"></select></label>
         <label><span class="doppie-field-label">${doppieUiIcon("priority")}Priority</span><select data-route="priority"><option value="3">Normal</option><option value="2">High</option><option value="1">Urgent</option><option value="4">Low</option></select></label>
@@ -250,7 +243,6 @@ async function startMultiAnnotation() {
     <footer class="doppie-session-bar">
       <div><img src="${chrome.runtime.getURL("assets/icon-32.png")}" alt=""><span><strong>Page review</strong><small><b data-count>0</b> annotations</small></span></div>
       <button class="doppie-record-button" data-session-action="record">${doppieUiIcon("record")}<span>${recording ? "Stop recording" : "Record flow"}</span><b>${reproductionSteps.length}</b></button>
-      <button class="doppie-developer-button ${developerMode ? "active" : ""}" data-session-action="developer" title="Include developer context">${doppieUiIcon("terminal")}<span>Dev context</span></button>
       <span class="doppie-session-spacer"></span>
       <button data-session-action="cancel">Cancel</button>
       <button class="doppie-review-button" data-session-action="review" disabled><span>Review issues</span> <b>0</b></button>
@@ -269,9 +261,6 @@ async function startMultiAnnotation() {
   const panelMessage = panel.querySelector(".doppie-panel-message");
   const reviewButton = layer.querySelector('[data-session-action="review"]');
   const recordButton = layer.querySelector('[data-session-action="record"]');
-  const developerButton = layer.querySelector(
-    '[data-session-action="developer"]',
-  );
   const submitButton = layer.querySelector('[data-panel-action="submit"]');
   const sendAgentButton = layer.querySelector(
     '[data-panel-action="send-agent"]',
@@ -303,13 +292,13 @@ async function startMultiAnnotation() {
           networkRequests: networkRequests.slice(-100),
           sessionEvents: sessionEvents.slice(-80),
           reproductionSteps: reproductionSteps.slice(-20),
+          sessionVideo,
           recording,
           parentMode,
           parentIssue,
           flowIssue,
           flowDraft,
           defaultFeedbackType,
-          developerMode,
           agentHandoff,
           sharedRouting: panel.querySelector('[data-route="team"]').options
             .length
@@ -354,17 +343,18 @@ async function startMultiAnnotation() {
   }
 
   function renderRecordingState() {
+    document.documentElement.classList.toggle("doppie-reviewing", !recording);
     document.documentElement.classList.toggle("doppie-recording", recording);
     recordButton.classList.toggle("recording", recording);
     recordButton.querySelector("span").textContent = recording
-      ? "Stop recording"
+      ? "Stop & save video"
       : "Record flow";
     recordButton.querySelector("b").textContent = reproductionSteps.length;
     layer.querySelector(".doppie-review-tip strong").textContent = recording
       ? "Recording flow"
       : "Review mode";
     layer.querySelector(".doppie-review-tip small").textContent = recording
-      ? "Use the page normally, then stop to annotate"
+      ? "Interactions, requests, and tab video are being captured"
       : "Pick an element · Alt + scroll selects parents";
     if (recording) hoverBox.classList.remove("visible", "selected");
   }
@@ -422,22 +412,97 @@ async function startMultiAnnotation() {
     );
   }
 
-  function setRecording(nextRecording) {
+  async function setRecording(nextRecording) {
+    if (videoStarting) return;
     recording = nextRecording;
     closeNote();
     closePanel();
     renderRecordingState();
-    if (recording)
+    if (recording) {
       recordStep(
         `Start on ${location.pathname}${location.search}${location.hash}`,
         null,
         "start",
       );
-    else {
+      videoStarting = true;
+      recordButton.disabled = true;
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: "start-flow-video",
+          sessionId,
+        });
+        if (!response?.ok)
+          throw new Error(response?.error || "Could not start tab video");
+        videoActive = true;
+        sessionVideo = null;
+      } catch (error) {
+        videoActive = false;
+        showPageToast(
+          `${error.message || "Video capture unavailable"}. Flow events are still recording.`,
+        );
+      } finally {
+        videoStarting = false;
+        recordButton.disabled = false;
+        persistSession(true);
+      }
+    } else {
+      if (videoActive) {
+        videoStarting = true;
+        recordButton.disabled = true;
+        try {
+          const response = await chrome.runtime.sendMessage({
+            type: "stop-flow-video",
+            sessionId,
+          });
+          if (!response?.ok)
+            throw new Error(response?.error || "Could not finish tab video");
+          sessionVideo = response.video || null;
+        } catch (error) {
+          showPageToast(error.message || "Could not save the flow video");
+        } finally {
+          videoActive = false;
+          videoStarting = false;
+          recordButton.disabled = false;
+        }
+      }
       persistSession(true);
       showPageToast(
-        `${reproductionSteps.length} reproduction ${reproductionSteps.length === 1 ? "step" : "steps"} saved.`,
+        `${reproductionSteps.length} reproduction ${reproductionSteps.length === 1 ? "step" : "steps"}${sessionVideo ? " and video" : ""} saved.`,
       );
+    }
+  }
+
+  async function restoreRecordingState() {
+    if (!recording) return;
+    videoStarting = true;
+    recordButton.disabled = true;
+    renderRecordingState();
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "flow-video-status",
+        sessionId,
+      });
+      if (!response?.ok)
+        throw new Error(response?.error || "Could not restore flow recording");
+      videoActive =
+        Boolean(response.recording) && response.sessionId === sessionId;
+      if (!videoActive) {
+        recording = false;
+        if (response.video?.sessionId === sessionId) {
+          sessionVideo = response.video;
+          showPageToast("The 90-second flow video was saved automatically.");
+        } else {
+          showPageToast("Flow recording stopped during navigation.");
+        }
+      }
+    } catch (_) {
+      recording = false;
+      videoActive = false;
+    } finally {
+      videoStarting = false;
+      recordButton.disabled = false;
+      renderRecordingState();
+      persistSession(true);
     }
   }
 
@@ -542,20 +607,13 @@ async function startMultiAnnotation() {
   }
 
   function renderDeveloperState() {
-    document.documentElement.classList.toggle(
-      "doppie-developer-mode",
-      developerMode,
-    );
-    developerButton.classList.toggle("active", developerMode);
-    developerButton.classList.toggle("connected", devBridgeConnected);
+    document.documentElement.classList.add("doppie-developer-mode");
     const status = layer.querySelector("[data-dev-status]");
-    status.classList.toggle("active", developerMode);
+    status.classList.add("active");
     status.classList.toggle("connected", devBridgeConnected);
     status.textContent = devBridgeConnected
       ? "Agent connected"
-      : developerMode
-        ? "Dev context"
-        : "Dev off";
+      : "Context auto";
     const hasReview = Boolean(
       annotations.length || reproductionSteps.length || diagnostics.length,
     );
@@ -578,10 +636,6 @@ async function startMultiAnnotation() {
         type: "dev-bridge-status",
       });
       const connected = Boolean(response?.connected);
-      if (connected && !developerMode) {
-        developerMode = true;
-        await chrome.storage.local.set({ developerMode: true });
-      }
       devBridgeConnected = connected;
       renderDeveloperState();
     } catch (_) {
@@ -590,13 +644,6 @@ async function startMultiAnnotation() {
     } finally {
       bridgeChecking = false;
     }
-  }
-
-  function toggleDeveloperMode() {
-    developerMode = !developerMode;
-    chrome.storage.local.set({ developerMode });
-    renderDeveloperState();
-    persistSession(true);
   }
 
   function updateHoverBox() {
@@ -811,10 +858,21 @@ async function startMultiAnnotation() {
       : "One review summary with child issues";
     const contextPreview = panel.querySelector(".doppie-context-preview");
     contextPreview.hidden =
+      !sessionVideo &&
       !reproductionSteps.length &&
       !networkRequests.length &&
       !sessionEvents.length &&
       !diagnostics.length;
+    const videoContext = contextPreview.querySelector("[data-context-video]");
+    videoContext.hidden = !sessionVideo;
+    if (sessionVideo) {
+      const video = videoContext.querySelector("video");
+      if (video.src !== sessionVideo.dataUrl) video.src = sessionVideo.dataUrl;
+      videoContext.querySelector("small").textContent = `${Math.max(
+        1,
+        Math.round((sessionVideo.durationMs || 0) / 1000),
+      )}s · ${Math.max(1, Math.round((sessionVideo.size || 0) / 1024))} KB · video only`;
+    }
     contextPreview.querySelector("[data-context-steps]").innerHTML =
       reproductionSteps.length
         ? reproductionSteps
@@ -1198,9 +1256,7 @@ async function startMultiAnnotation() {
     const buttonLabel = button.querySelector("span");
     const idleText = buttonLabel.textContent;
     const selectedElement = target;
-    const developerContext = DoppieDevContext.capture(selectedElement, {
-      debug: developerMode,
-    });
+    const developerContext = DoppieDevContext.capture(selectedElement);
     const screenshotMode =
       popover.querySelector("[data-capture-mode].active")?.dataset.captureMode ||
       "element";
@@ -1314,6 +1370,7 @@ async function startMultiAnnotation() {
           diagnostics,
           networkRequests,
           sessionEvents,
+          sessionVideo,
         }),
       };
       if (sharedRouting.assigneeId) input.assigneeId = sharedRouting.assigneeId;
@@ -1333,6 +1390,12 @@ async function startMultiAnnotation() {
           type: "create-linear-issue",
           input,
           screenshots,
+          video: sessionVideo
+            ? {
+                dataUrl: sessionVideo.dataUrl,
+                filename: `doppie-flow-${sessionId}.webm`,
+              }
+            : undefined,
         });
         if (!response?.ok)
           throw new Error(response?.error || "Linear request failed");
@@ -1384,6 +1447,7 @@ async function startMultiAnnotation() {
           diagnostics,
           networkRequests,
           sessionEvents,
+          sessionVideo,
         }),
       };
       if (sharedRouting.assigneeId)
@@ -1405,6 +1469,12 @@ async function startMultiAnnotation() {
           type: "create-linear-issue",
           input: parentInput,
           screenshots,
+          video: sessionVideo
+            ? {
+                dataUrl: sessionVideo.dataUrl,
+                filename: `doppie-flow-${sessionId}.webm`,
+              }
+            : undefined,
         });
         if (!response?.ok)
           throw new Error(response?.error || "Could not create parent issue");
@@ -1416,6 +1486,7 @@ async function startMultiAnnotation() {
           issue: parentIssue,
         });
         await copyIssueLinks();
+        reproductionEvidenceAttached = true;
         await persistSession(true);
       } catch (error) {
         panelMessage.textContent =
@@ -1455,8 +1526,9 @@ async function startMultiAnnotation() {
       if (routing.projectId) input.projectId = routing.projectId;
       if (routing.labelIds.length) input.labelIds = routing.labelIds;
       if (parentIssue?.id) input.parentId = parentIssue.id;
+      const attachSharedEvidence = !parentMode && !reproductionEvidenceAttached;
       const screenshots =
-        !parentMode && !reproductionEvidenceAttached
+        attachSharedEvidence
           ? reproductionSteps
               .filter((step) => step.screenshot)
               .slice(0, 6)
@@ -1466,7 +1538,6 @@ async function startMultiAnnotation() {
                 alt: `Reproduction step ${stepIndex + 1}`,
               }))
           : [];
-      reproductionEvidenceAttached = true;
       try {
         const response = await chrome.runtime.sendMessage({
           type: "create-linear-issue",
@@ -1474,11 +1545,19 @@ async function startMultiAnnotation() {
           screenshot: annotation.screenshot,
           screenshotName: `doppie-element-${index + 1}.jpg`,
           screenshots,
+          video:
+            attachSharedEvidence && sessionVideo
+              ? {
+                  dataUrl: sessionVideo.dataUrl,
+                  filename: `doppie-flow-${sessionId}.webm`,
+                }
+              : undefined,
         });
         if (!response?.ok)
           throw new Error(response?.error || "Linear request failed");
         annotation.status = "success";
         annotation.issue = response.issue;
+        reproductionEvidenceAttached = true;
         await saveCreatedIssue(annotation);
         await copyIssueLinks();
       } catch (error) {
@@ -1523,6 +1602,7 @@ async function startMultiAnnotation() {
       diagnostics,
       networkRequests,
       sessionEvents,
+      sessionVideo,
     });
   }
 
@@ -1564,7 +1644,7 @@ async function startMultiAnnotation() {
           devicePixelRatio: window.devicePixelRatio || 1,
         },
       },
-      developerMode: true,
+      developerContext: "automatic",
       annotations: annotations.map((annotation) => ({
         id: annotation.id,
         title: annotation.title,
@@ -1582,6 +1662,7 @@ async function startMultiAnnotation() {
       diagnostics,
       networkRequests,
       sessionEvents,
+      sessionVideo,
     };
   }
 
@@ -1596,7 +1677,6 @@ async function startMultiAnnotation() {
         "Run $doppie-assist in Codex, then keep this review open.";
       return;
     }
-    developerMode = true;
     sendAgentButton.disabled = true;
     sendAgentButton.querySelector("span").textContent = "Sending review...";
     panelMessage.textContent = "Sending developer context to the waiting agent...";
@@ -1663,6 +1743,13 @@ async function startMultiAnnotation() {
   }
 
   function cleanup({ discard = false, silent = false } = {}) {
+    if (videoActive) {
+      videoActive = false;
+      recording = false;
+      chrome.runtime
+        .sendMessage({ type: "stop-flow-video", sessionId })
+        .catch(() => {});
+    }
     if (discard) clearSavedSession();
     else persistSession(true);
     layer.remove();
@@ -1784,7 +1871,6 @@ async function startMultiAnnotation() {
     .querySelector('[data-session-action="cancel"]')
     .addEventListener("click", () => cleanup({ discard: true, silent: true }));
   recordButton.addEventListener("click", () => setRecording(!recording));
-  developerButton.addEventListener("click", toggleDeveloperMode);
   reviewButton.addEventListener("click", openPanel);
   panel
     .querySelector('[data-review-option="parent"]')
@@ -1840,9 +1926,10 @@ async function startMultiAnnotation() {
             { transform: "translateX(-50%) scale(1)" },
           ],
           { duration: 260 },
-        );
+      );
     },
   };
+  if (restoredDraft?.recording) restoreRecordingState();
 }
 
 chrome.storage.local

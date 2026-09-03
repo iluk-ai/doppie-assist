@@ -118,6 +118,17 @@
       }),
     );
 
+  const compactVideo = (video) =>
+    video
+      ? compactObject({
+          available: true,
+          mimeType: video.mimeType,
+          size: video.size,
+          durationMs: video.durationMs,
+          recordedAt: video.recordedAt,
+        })
+      : null;
+
   const edgeValues = (edges = {}) =>
     [edges.top, edges.right, edges.bottom, edges.left]
       .map((value) => Number(value || 0))
@@ -176,6 +187,7 @@
     const diagnostics = compactDiagnostics(context.diagnostics);
     const networkRequests = compactNetwork(context.networkRequests);
     const sessionEvents = compactEvents(context.sessionEvents);
+    const sessionVideo = compactVideo(context.sessionVideo);
     const developerContext = context.developerContext || null;
     const target = compactObject({
       mode: context.mode || "page",
@@ -205,6 +217,7 @@
       diagnostics,
       networkRequests,
       sessionEvents,
+      sessionVideo,
     };
     const targetLines = [
       `- **Feedback type:** ${feedbackType.label}`,
@@ -294,6 +307,14 @@
           .join("\n")}`,
       );
 
+    if (sessionVideo)
+      sections.push(
+        `## Flow video\nRecorded tab video: ${Math.max(
+          1,
+          Math.round((sessionVideo.durationMs || 0) / 1000),
+        )}s, ${Math.max(1, Math.round((sessionVideo.size || 0) / 1024))} KB, no audio. The uploaded recording is linked in Evidence.`,
+      );
+
     sections.push(
       `## Acceptance criteria\n${[
         "Apply the requested change to the identified target.",
@@ -327,6 +348,7 @@
       diagnostics: context.diagnostics,
       networkRequests: context.networkRequests,
       sessionEvents: context.sessionEvents,
+      sessionVideo: context.sessionVideo,
     });
     const childPlan = annotations.length
       ? annotations
