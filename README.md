@@ -71,6 +71,8 @@ OAuth tokens or the optional API key are stored locally in the browser profile. 
 
 Doppie Assist can hand a browser review directly to a coding agent without creating Linear issues. The connection is manual and local: the skill opens a one-use listener on `127.0.0.1:47361`, the extension shows **Agent connected**, and no review data is sent until you choose **Send to coding agent**.
 
+After invocation, the skill keeps the listener running without asking for confirmation. Submission from the extension resumes the same agent turn automatically; a new prompt is only needed when the user explicitly cancels or the listener times out.
+
 Install the bundled skill in your Codex skill directory:
 
 ```bash

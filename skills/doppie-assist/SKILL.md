@@ -16,13 +16,16 @@ annotations as the user's requested code changes.
    node <skill-directory>/scripts/wait-for-annotations.cjs --timeout 1800000
    ```
 
-   Use the actual installed skill directory for `<skill-directory>`. Keep the
-   command running until it prints `DOPPIE_ASSIST_RESULT`, times out, or the user
-   cancels it. Do not start a second listener on the same port.
+   Use the actual installed skill directory for `<skill-directory>`. Start it in
+   a foreground or persistent terminal process that can be waited on. Do not
+   start a second listener on the same port.
 
-2. Ask the user to open Doppie Assist, start **Review**, add annotations, open
-   **Review issues**, and choose **Send to coding agent** only when the listener
-   is waiting and the user has not already started the browser review.
+2. When the process prints that it is waiting, continue waiting on that same
+   process until it prints `DOPPIE_ASSIST_RESULT`, times out, or the user
+   explicitly cancels. Do not call a user-input or Ask tool, present confirmation
+   choices, ask whether the review was sent, or end the turn while the listener
+   is running. A brief non-interactive status update is allowed, but it must not
+   interrupt the wait.
 
 3. Read the `bundlePath` and `briefPath` returned in
    `DOPPIE_ASSIST_RESULT`. Inspect referenced screenshots when visual evidence

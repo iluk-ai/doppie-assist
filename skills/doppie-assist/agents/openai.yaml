@@ -1,6 +1,6 @@
 interface:
   display_name: "Doppie Assist"
   short_description: "Wait for browser annotations and implement them"
-  default_prompt: "Use $doppie-assist to wait for browser annotations and implement them in this workspace."
+  default_prompt: "Use $doppie-assist to start the listener, wait without asking me to confirm submission, and implement the received browser annotations in this workspace."
 policy:
   allow_implicit_invocation: false
