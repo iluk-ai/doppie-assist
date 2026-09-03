@@ -997,6 +997,43 @@
   border-radius: 4px !important;
   background: #202421 !important;
 }
+.doppie-review-layer.panel-open .doppie-pins,
+.doppie-review-layer.panel-open .doppie-hover-box {
+  visibility: hidden !important;
+}
+.doppie-review-panel.visible {
+  animation: doppie-panel-in 160ms ease-out both !important;
+  opacity: 1 !important;
+}
+@keyframes doppie-panel-in {
+  from {
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+.doppie-review-item {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+}
+.doppie-review-item > .doppie-item-summary {
+  width: 100% !important;
+  overflow: hidden !important;
+}
+.doppie-review-item > .doppie-review-thumb,
+.doppie-review-item > .doppie-item-edit,
+.doppie-review-item > .doppie-item-delete {
+  position: relative !important;
+  z-index: 1 !important;
+  flex: 0 0 auto !important;
+}
+.doppie-review-item strong,
+.doppie-review-item small {
+  max-width: 100% !important;
+  line-height: 1.25 !important;
+}
 .doppie-review-thumb img {
   width: 100% !important;
   height: 100% !important;

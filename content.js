@@ -1601,12 +1601,15 @@ async function startMultiAnnotation() {
   function openPanel() {
     closeNote();
     hoverBox.classList.remove("visible");
+    document.querySelector(".margin-toast")?.remove();
+    layer.classList.add("panel-open");
     panel.classList.add("visible");
     renderReviewPanel();
   }
 
   function closePanel() {
     reviewEditingId = null;
+    layer.classList.remove("panel-open");
     panel.classList.remove("visible", "editing-item");
   }
 
