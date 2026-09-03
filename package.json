@@ -1,6 +1,6 @@
 {
   "name": "doppie-assist",
-  "version": "0.26.0",
+  "version": "1.26.0",
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.cjs"
