@@ -3,6 +3,7 @@ let activeTab;
 let latestCapture;
 let currentPriority = 3;
 let linearConfig;
+let developerMode = false;
 const selectedLabelIds = new Set();
 
 const escapeHtml = (value = "") =>
@@ -45,9 +46,12 @@ async function loadState() {
     "linearConfig",
     "lastSelection",
     "pendingComposer",
+    "developerMode",
   ]);
   latestCapture = state.captures?.[0];
   linearConfig = state.linearConfig;
+  developerMode = Boolean(state.developerMode);
+  $("developer-mode").checked = developerMode;
   if (linearConfig?.apiKey && !Array.isArray(linearConfig.users)) {
     const migrated = await chrome.runtime.sendMessage({
       type: "linear-connect",
@@ -420,6 +424,11 @@ $("label-search").addEventListener("input", (event) =>
 $("edit-shortcuts").addEventListener("click", () =>
   chrome.tabs.create({ url: "chrome://extensions/shortcuts" }),
 );
+$("developer-mode").addEventListener("change", async (event) => {
+  developerMode = event.target.checked;
+  await chrome.storage.local.set({ developerMode });
+  toast(developerMode ? "Developer context enabled" : "Developer context disabled");
+});
 $("inbox-tab").addEventListener("click", () =>
   $("drafts-view").classList.remove("hidden"),
 );

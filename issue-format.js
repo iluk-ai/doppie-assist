@@ -89,6 +89,53 @@
       }),
     );
 
+  const edgeValues = (edges = {}) =>
+    [edges.top, edges.right, edges.bottom, edges.left]
+      .map((value) => Number(value || 0))
+      .join(" ");
+
+  const developerSummary = (developerContext) => {
+    if (!developerContext) return "";
+    const lines = [];
+    const accessibility = developerContext.accessibility || {};
+    const boxModel = developerContext.boxModel || {};
+    const styles = developerContext.styles?.key || {};
+    if (accessibility.role || accessibility.name)
+      lines.push(
+        `- **Accessibility:** role \`${inlineCode(accessibility.role || "none")}\`${
+          accessibility.name
+            ? `, name “${markdownText(accessibility.name)}”`
+            : ""
+        }, ${accessibility.focusable ? "focusable" : "not focusable"}`,
+      );
+    if (boxModel.content)
+      lines.push(
+        `- **Box model:** content ${boxModel.content.width} x ${boxModel.content.height}px; padding \`${edgeValues(
+          boxModel.padding,
+        )}\`; border \`${edgeValues(boxModel.border)}\`; margin \`${edgeValues(
+          boxModel.margin,
+        )}\``,
+      );
+    const styleSummary = [
+      "display",
+      "position",
+      "z-index",
+      "width",
+      "height",
+      "gap",
+      "font-size",
+      "font-weight",
+      "color",
+      "background-color",
+    ]
+      .filter((property) => styles[property])
+      .map((property) => `${property}: ${styles[property]}`)
+      .join("; ");
+    if (styleSummary)
+      lines.push(`- **Key styles:** \`${inlineCode(styleSummary)}\``);
+    return lines.join("\n");
+  };
+
   function buildIssueDescription(context = {}) {
     const request = String(context.request || context.issueTitle || "").trim();
     const url = context.url || "";
@@ -98,6 +145,7 @@
       FEEDBACK_TYPES[context.feedbackType] || FEEDBACK_TYPES.ui;
     const reproductionSteps = compactSteps(context.reproductionSteps);
     const diagnostics = compactDiagnostics(context.diagnostics);
+    const developerContext = context.developerContext || null;
     const target = compactObject({
       mode: context.mode || "page",
       label: context.label,
@@ -109,16 +157,18 @@
       viewport: context.viewport,
     });
     const capture = compactObject({
+      mode: context.screenshotMode,
       width: context.captureWidth,
       height: context.captureHeight,
       format: context.captureFormat || (context.screenshot ? "image/jpeg" : ""),
     });
     const agentContext = {
-      schema: "doppie-assist/v1",
+      schema: "doppie-assist/v2",
       request,
       feedbackType: feedbackType.label,
       page: compactObject({ title: context.pageTitle, url, path }),
       target,
+      developerContext,
       capture,
       reproductionSteps,
       diagnostics,
@@ -163,6 +213,9 @@
         );
       sections.push(`## Element context\n${elementParts.join("\n\n")}`);
     }
+
+    const devSummary = developerSummary(developerContext);
+    if (devSummary) sections.push(`## Developer context\n${devSummary}`);
 
     if (reproductionSteps.length)
       sections.push(

@@ -116,6 +116,15 @@ function doppieUiIcon(name) {
     record: '<circle cx="12" cy="12" r="7" fill="currentColor"/>',
     template:
       '<path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h5"/><path d="M8 16h3"/>',
+    terminal:
+      '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+    parent: '<path d="m18 15-6-6-6 6"/>',
+    child: '<path d="m6 9 6 6 6-6"/>',
+    crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
+    viewport:
+      '<rect width="18" height="14" x="3" y="4" rx="2"/><path d="M8 22h8"/><path d="M12 18v4"/>',
+    imageOff:
+      '<path d="m2 2 20 20"/><path d="M10.4 10.4 4 17h13"/><path d="M14.5 14.5 21 8v9a2 2 0 0 1-2 2H8"/><path d="M3 3v12"/>',
   };
   return `<svg class="doppie-ui-icon" aria-hidden="true" viewBox="0 0 24 24">${icons[name] || ""}</svg>`;
 }
@@ -126,10 +135,15 @@ async function startMultiAnnotation() {
     return;
   }
 
-  const { linearConfig, activeReviewSessionDraft } =
+  const {
+    linearConfig,
+    activeReviewSessionDraft,
+    developerMode: savedDeveloperMode,
+  } =
     await chrome.storage.local.get([
       "linearConfig",
       "activeReviewSessionDraft",
+      "developerMode",
     ]);
   const draftIsCurrent =
     activeReviewSessionDraft?.origin === location.origin &&
@@ -140,13 +154,12 @@ async function startMultiAnnotation() {
   );
   const annotations = (restoredDraft?.annotations || []).map((annotation) => {
     let element = null;
-    if (annotation.pageUrl === location.href && annotation.selector) {
-      try {
-        element = document.querySelector(annotation.selector);
-      } catch (_) {
-        element = null;
-      }
-    }
+    if (annotation.pageUrl === location.href)
+      element =
+        DoppieDevContext.resolve(annotation.developerContext) ||
+        DoppieDevContext.resolve({
+          selector: { primary: annotation.selector, alternatives: [] },
+        });
     return {
       ...annotation,
       element,
@@ -161,6 +174,10 @@ async function startMultiAnnotation() {
   let flowIssue = restoredDraft?.flowIssue || null;
   let sharedRoutingDraft = restoredDraft?.sharedRouting || null;
   let defaultFeedbackType = restoredDraft?.defaultFeedbackType || "ui";
+  let developerMode =
+    restoredDraft?.developerMode ?? Boolean(savedDeveloperMode);
+  let devBridgeConnected = false;
+  let agentHandoff = restoredDraft?.agentHandoff || null;
   const flowDraft = {
     title: `Recorded flow: ${document.title}`,
     request: "Review the recorded flow and resolve the captured behavior.",
@@ -170,11 +187,16 @@ async function startMultiAnnotation() {
   const sessionId = restoredDraft?.id || crypto.randomUUID();
   const sessionStartedAt = restoredDraft?.createdAt || Date.now();
   let target = null;
+  let hoverOrigin = null;
+  let targetStack = [];
+  let targetStackIndex = 0;
   let editingId = null;
   let reviewEditingId = null;
   let refreshQueued = false;
   let persistTimer = null;
   let stepCaptureQueue = Promise.resolve();
+  let bridgeCheckTimer = null;
+  let bridgeChecking = false;
   const shortcutLabel = /Mac|iPhone|iPad|iPod/i.test(
     navigator.userAgentData?.platform || navigator.platform || "",
   )
@@ -192,13 +214,15 @@ async function startMultiAnnotation() {
   layer.innerHTML = `
     <div class="doppie-review-tip">
       <img src="${chrome.runtime.getURL("assets/icon-32.png")}" alt="">
-      <span><strong>Review mode</strong><small>Pick an element to leave a note · Esc to exit</small></span>
+      <span><strong>Review mode</strong><small>Pick an element · Alt + scroll selects parents</small></span>
+      <b class="doppie-dev-status" data-dev-status>Dev</b>
     </div>
     <div class="doppie-hover-box"><b></b><small></small></div>
     <div class="doppie-pins"></div>
     <section class="doppie-note-popover" aria-label="Element annotation">
-      <header><span class="doppie-note-number">1</span><div><strong>Add feedback</strong><small></small></div><button data-note-action="close" aria-label="Close">×</button></header>
+      <header><span class="doppie-note-number">1</span><div><strong>Add feedback</strong><small></small></div><button data-note-action="child" aria-label="Select child element" title="Select child element">${doppieUiIcon("child")}</button><button data-note-action="parent" aria-label="Select parent element" title="Select parent element">${doppieUiIcon("parent")}</button><button data-note-action="close" aria-label="Close">×</button></header>
       <label class="doppie-note-type"><span>Feedback type</span><select>${feedbackOptions}</select></label>
+      <fieldset class="doppie-note-capture"><legend>Screenshot</legend><div><button type="button" data-capture-mode="element">${doppieUiIcon("crop")}Element</button><button type="button" data-capture-mode="viewport">${doppieUiIcon("viewport")}Viewport</button><button type="button" data-capture-mode="none">${doppieUiIcon("imageOff")}None</button></div></fieldset>
       <textarea rows="4" maxlength="1200" placeholder="Describe what should change..."></textarea>
       <p class="doppie-note-error" role="alert"></p>
       <footer><button data-note-action="remove" class="doppie-note-remove">Remove</button><span></span><button data-note-action="cancel">Cancel</button><button data-note-action="save" class="doppie-note-save" aria-keyshortcuts="Meta+Enter Control+Enter"><span>Add annotation</span><kbd>${shortcutLabel}</kbd></button></footer>
@@ -219,11 +243,12 @@ async function startMultiAnnotation() {
         <fieldset><legend class="doppie-field-label">${doppieUiIcon("labels")}Labels</legend><div class="doppie-label-options"></div></fieldset>
       </div>
       <p class="doppie-panel-message" role="status"></p>
-      <button class="doppie-submit-review" data-panel-action="submit">Create Linear issues</button>
+      <div class="doppie-submit-actions"><button class="doppie-send-agent" data-panel-action="send-agent">${doppieUiIcon("terminal")}<span>Send to coding agent</span></button><button class="doppie-submit-review" data-panel-action="submit">Create Linear issues</button></div>
     </section>
     <footer class="doppie-session-bar">
       <div><img src="${chrome.runtime.getURL("assets/icon-32.png")}" alt=""><span><strong>Page review</strong><small><b data-count>0</b> annotations</small></span></div>
       <button class="doppie-record-button" data-session-action="record">${doppieUiIcon("record")}<span>${recording ? "Stop recording" : "Record flow"}</span><b>${reproductionSteps.length}</b></button>
+      <button class="doppie-developer-button ${developerMode ? "active" : ""}" data-session-action="developer" title="Include developer context">${doppieUiIcon("terminal")}<span>Dev context</span></button>
       <span class="doppie-session-spacer"></span>
       <button data-session-action="cancel">Cancel</button>
       <button class="doppie-review-button" data-session-action="review" disabled><span>Review issues</span> <b>0</b></button>
@@ -242,9 +267,18 @@ async function startMultiAnnotation() {
   const panelMessage = panel.querySelector(".doppie-panel-message");
   const reviewButton = layer.querySelector('[data-session-action="review"]');
   const recordButton = layer.querySelector('[data-session-action="record"]');
+  const developerButton = layer.querySelector(
+    '[data-session-action="developer"]',
+  );
   const submitButton = layer.querySelector('[data-panel-action="submit"]');
+  const sendAgentButton = layer.querySelector(
+    '[data-panel-action="send-agent"]',
+  );
 
-  const isReviewUi = (element) => element?.closest?.(".doppie-review-layer");
+  const isReviewUi = (element) =>
+    element?.closest?.(
+      ".doppie-review-layer, .margin-capture-layer, .margin-element-layer, .margin-editor-layer, .margin-toast",
+    );
   const getAnnotation = (id) =>
     annotations.find((annotation) => annotation.id === id);
 
@@ -271,6 +305,8 @@ async function startMultiAnnotation() {
           flowIssue,
           flowDraft,
           defaultFeedbackType,
+          developerMode,
+          agentHandoff,
           sharedRouting: panel.querySelector('[data-route="team"]').options
             .length
             ? getSharedRouting()
@@ -325,7 +361,7 @@ async function startMultiAnnotation() {
       : "Review mode";
     layer.querySelector(".doppie-review-tip small").textContent = recording
       ? "Use the page normally, then stop to annotate"
-      : "Pick an element to leave a note · Esc to exit";
+      : "Pick an element · Alt + scroll selects parents";
     if (recording) hoverBox.classList.remove("visible", "selected");
   }
 
@@ -441,6 +477,113 @@ async function startMultiAnnotation() {
     );
   }
 
+  function buildTargetStack(element) {
+    const stack = [];
+    let current = element;
+    while (
+      current instanceof Element &&
+      !isReviewUi(current) &&
+      current !== document.documentElement
+    ) {
+      stack.push(current);
+      current = current.parentElement;
+    }
+    return stack;
+  }
+
+  function setTargetElement(element, { resetStack = true } = {}) {
+    if (!element?.isConnected) return false;
+    if (resetStack) {
+      hoverOrigin = element;
+      targetStack = buildTargetStack(element);
+      targetStackIndex = 0;
+    }
+    target = element;
+    if (popover.classList.contains("visible")) {
+      popover.querySelector("header small").textContent = describeElement(target);
+      positionPopover(target);
+    }
+    updateTargetControls();
+    updateHoverBox();
+    return true;
+  }
+
+  function updateTargetControls() {
+    const child = popover.querySelector('[data-note-action="child"]');
+    const parent = popover.querySelector('[data-note-action="parent"]');
+    child.disabled = targetStackIndex <= 0;
+    parent.disabled = targetStackIndex >= targetStack.length - 1;
+  }
+
+  function cycleTarget(direction) {
+    if (!targetStack.length) return;
+    const nextIndex = Math.max(
+      0,
+      Math.min(targetStack.length - 1, targetStackIndex + direction),
+    );
+    if (nextIndex === targetStackIndex) return;
+    targetStackIndex = nextIndex;
+    setTargetElement(targetStack[targetStackIndex], { resetStack: false });
+  }
+
+  function renderDeveloperState() {
+    document.documentElement.classList.toggle(
+      "doppie-developer-mode",
+      developerMode,
+    );
+    developerButton.classList.toggle("active", developerMode);
+    developerButton.classList.toggle("connected", devBridgeConnected);
+    const status = layer.querySelector("[data-dev-status]");
+    status.classList.toggle("active", developerMode);
+    status.classList.toggle("connected", devBridgeConnected);
+    status.textContent = devBridgeConnected
+      ? "Agent connected"
+      : developerMode
+        ? "Dev context"
+        : "Dev off";
+    const hasReview = Boolean(
+      annotations.length || reproductionSteps.length || diagnostics.length,
+    );
+    sendAgentButton.disabled = !devBridgeConnected || !hasReview;
+    sendAgentButton.querySelector("span").textContent = agentHandoff
+      ? "Sent to coding agent"
+      : devBridgeConnected
+        ? "Send to coding agent"
+        : "Waiting for terminal";
+    sendAgentButton.title = devBridgeConnected
+      ? "Send this review to the waiting Doppie Assist skill"
+      : "Run $doppie-assist in Codex first";
+  }
+
+  async function refreshDevBridgeStatus() {
+    if (bridgeChecking || !document.contains(layer)) return;
+    bridgeChecking = true;
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "dev-bridge-status",
+      });
+      const connected = Boolean(response?.connected);
+      if (connected && !developerMode) {
+        developerMode = true;
+        await chrome.storage.local.set({ developerMode: true });
+      }
+      devBridgeConnected = connected;
+      renderDeveloperState();
+    } catch (_) {
+      devBridgeConnected = false;
+      renderDeveloperState();
+    } finally {
+      bridgeChecking = false;
+    }
+  }
+
+  function toggleDeveloperMode() {
+    developerMode = !developerMode;
+    chrome.storage.local.set({ developerMode });
+    renderDeveloperState();
+    persistSession(true);
+  }
+
   function updateHoverBox() {
     if (!target?.isConnected) {
       hoverBox.classList.remove("visible");
@@ -492,7 +635,7 @@ async function startMultiAnnotation() {
 
   function openNote(element, annotation = null) {
     if (!element?.isConnected) return;
-    target = element;
+    setTargetElement(element);
     editingId = annotation?.id || null;
     popover.querySelector("header small").textContent =
       describeElement(element);
@@ -506,6 +649,13 @@ async function startMultiAnnotation() {
       annotation ? "Save changes" : "Add annotation";
     noteType.value = annotation?.feedbackType || defaultFeedbackType;
     noteText.value = annotation?.note || "";
+    const captureMode = annotation?.screenshotMode || "element";
+    popover.querySelectorAll("[data-capture-mode]").forEach((button) =>
+      button.classList.toggle(
+        "active",
+        button.dataset.captureMode === captureMode,
+      ),
+    );
     noteError.textContent = "";
     positionPopover(element);
     popover.classList.add("visible");
@@ -518,6 +668,9 @@ async function startMultiAnnotation() {
     editingId = null;
     noteError.textContent = "";
     target = null;
+    hoverOrigin = null;
+    targetStack = [];
+    targetStackIndex = 0;
     hoverBox.classList.remove("visible", "selected");
   }
 
@@ -576,6 +729,7 @@ async function startMultiAnnotation() {
     layer.querySelector("[data-step-count]").textContent =
       reproductionSteps.length;
     updatePins();
+    renderDeveloperState();
     if (panel.classList.contains("visible")) renderReviewPanel();
   }
 
@@ -693,7 +847,10 @@ async function startMultiAnnotation() {
             ? escapeMarkup(annotation.error || "Failed")
             : `${escapeMarkup(DoppieIssueFormat.FEEDBACK_TYPES[annotation.feedbackType]?.label || "UI change")} · ${escapeMarkup(annotation.label)}${annotation.routing ? " · Custom routing" : ""}`;
       const locked = ["creating", "success"].includes(annotation.status);
-      row.innerHTML = `<div class="doppie-review-thumb"><img src="${annotation.screenshot}" alt=""><span>${index + 1}</span></div><button type="button" class="doppie-item-summary" data-edit-id="${annotation.id}"><strong>${escapeMarkup(annotation.title)}</strong><small>${status}</small></button><button type="button" class="doppie-item-edit" data-edit-id="${annotation.id}" aria-label="Edit issue" title="Edit issue" ${locked ? "hidden" : ""}>${doppieUiIcon("edit")}</button><button type="button" class="doppie-item-delete" data-delete-id="${annotation.id}" aria-label="Remove annotation" title="Remove annotation" ${locked ? "hidden" : ""}>×</button>`;
+      const evidence = annotation.screenshot
+        ? `<img src="${annotation.screenshot}" alt="Screenshot of ${escapeMarkup(annotation.label)}">`
+        : `<span class="doppie-review-no-image">${doppieUiIcon("imageOff")}</span>`;
+      row.innerHTML = `<button type="button" class="doppie-review-thumb" data-locate-id="${annotation.id}" aria-label="Locate ${escapeMarkup(annotation.label)}" title="Locate element on page">${evidence}<span>${index + 1}</span></button><button type="button" class="doppie-item-summary" data-edit-id="${annotation.id}"><strong>${escapeMarkup(annotation.title)}</strong><small>${status} · ${escapeMarkup(annotation.screenshotMode || "element")} evidence</small></button><button type="button" class="doppie-item-edit" data-edit-id="${annotation.id}" aria-label="Edit issue" title="Edit issue" ${locked ? "hidden" : ""}>${doppieUiIcon("edit")}</button><button type="button" class="doppie-item-delete" data-delete-id="${annotation.id}" aria-label="Remove annotation" title="Remove annotation" ${locked ? "hidden" : ""}>×</button>`;
       list.appendChild(row);
 
       if (reviewEditingId !== annotation.id || locked) return;
@@ -716,6 +873,10 @@ async function startMultiAnnotation() {
         <label class="doppie-item-field doppie-item-field-wide">
           <span class="doppie-field-label">${doppieUiIcon("template")}Feedback type</span>
           <select data-item-field="type">${feedbackTypeOptions(annotation.feedbackType || "ui")}</select>
+        </label>
+        <label class="doppie-item-field doppie-item-field-wide">
+          <span class="doppie-field-label">${doppieUiIcon("crop")}Screenshot evidence</span>
+          <select data-item-field="screenshot"><option value="element" ${annotation.screenshotMode !== "viewport" && annotation.screenshotMode !== "none" ? "selected" : ""}>Element crop</option><option value="viewport" ${annotation.screenshotMode === "viewport" ? "selected" : ""}>Viewport with marker</option><option value="none" ${annotation.screenshotMode === "none" ? "selected" : ""}>No screenshot</option></select>
         </label>
         <label class="doppie-item-field doppie-item-field-wide">
           <span class="doppie-field-label">${doppieUiIcon("request")}Request</span>
@@ -742,6 +903,9 @@ async function startMultiAnnotation() {
         }
         openReviewEditor(button.dataset.editId);
       }),
+    );
+    list.querySelectorAll("[data-locate-id]").forEach((button) =>
+      button.addEventListener("click", () => locateAnnotation(button.dataset.locateId)),
     );
     list.querySelectorAll("[data-delete-id]").forEach((button) =>
       button.addEventListener("click", () => {
@@ -772,7 +936,7 @@ async function startMultiAnnotation() {
         });
       editor
         .querySelector('[data-item-action="save"]')
-        .addEventListener("click", () => {
+        .addEventListener("click", async () => {
           const annotation = getAnnotation(editor.dataset.itemEditor);
           const title = editor
             .querySelector('[data-item-field="title"]')
@@ -791,6 +955,35 @@ async function startMultiAnnotation() {
               )
               .focus();
             return;
+          }
+          const screenshotMode = editor.querySelector(
+            '[data-item-field="screenshot"]',
+          ).value;
+          if (screenshotMode !== annotation.screenshotMode) {
+            const element = resolveAnnotationElement(annotation);
+            if (!element && screenshotMode !== "none") {
+              error.textContent = "The target is no longer available to recapture.";
+              return;
+            }
+            const saveButton = editor.querySelector('[data-item-action="save"]');
+            saveButton.disabled = true;
+            saveButton.textContent = "Recapturing...";
+            try {
+              const crop = await captureAnnotation(
+                element,
+                screenshotMode,
+                annotations.indexOf(annotation) + 1,
+              );
+              annotation.screenshot = crop.dataUrl;
+              annotation.width = crop.width;
+              annotation.height = crop.height;
+              annotation.screenshotMode = screenshotMode;
+            } catch (captureError) {
+              error.textContent = captureError.message || "Could not recapture evidence.";
+              saveButton.disabled = false;
+              saveButton.textContent = "Save issue";
+              return;
+            }
           }
           let routing = null;
           if (!defaults.checked) {
@@ -920,14 +1113,19 @@ async function startMultiAnnotation() {
     }
   }
 
-  async function captureAnnotation(element) {
+  async function captureAnnotation(element, mode = "element", markerNumber = 1) {
+    if (mode === "none") return { dataUrl: "", width: 0, height: 0 };
     const bounds = element.getBoundingClientRect();
-    const rect = {
-      x: bounds.left,
-      y: bounds.top,
-      width: bounds.width,
-      height: bounds.height,
-    };
+    const padding = mode === "element" ? 20 : 0;
+    const rect =
+      mode === "viewport"
+        ? { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }
+        : {
+            x: bounds.left - padding,
+            y: bounds.top - padding,
+            width: bounds.width + padding * 2,
+            height: bounds.height + padding * 2,
+          };
     layer.style.visibility = "hidden";
     await nextPaint();
     let response;
@@ -939,6 +1137,8 @@ async function startMultiAnnotation() {
       layer.style.visibility = "";
     }
     if (!response?.ok) throw new Error(response?.error || "Capture failed");
+    if (mode === "viewport")
+      return markViewportScreenshot(response.dataUrl, bounds, markerNumber);
     return cropScreenshot(response.dataUrl, rect);
   }
 
@@ -957,26 +1157,46 @@ async function startMultiAnnotation() {
     const buttonLabel = button.querySelector("span");
     const idleText = buttonLabel.textContent;
     const selectedElement = target;
-    const elementContext = getElementContext(selectedElement);
+    const developerContext = DoppieDevContext.capture(selectedElement, {
+      debug: developerMode,
+    });
+    const screenshotMode =
+      popover.querySelector("[data-capture-mode].active")?.dataset.captureMode ||
+      "element";
     button.disabled = true;
     buttonLabel.textContent = "Capturing...";
     noteError.textContent = "";
     try {
-      const crop = await captureAnnotation(selectedElement);
-      const title = note.split("\n")[0].trim().slice(0, 120);
       const existing = editingId ? getAnnotation(editingId) : null;
+      const markerNumber = existing
+        ? annotations.indexOf(existing) + 1
+        : annotations.length + 1;
+      const crop = await captureAnnotation(
+        selectedElement,
+        screenshotMode,
+        markerNumber,
+      );
+      const title = note.split("\n")[0].trim().slice(0, 120);
       defaultFeedbackType = noteType.value;
       const data = {
         note,
         title,
         feedbackType: noteType.value,
         label: describeElement(selectedElement),
-        selector: buildElementSelector(selectedElement),
-        elementText: getElementText(selectedElement),
-        elementHtml: elementContext.html,
-        tagName: elementContext.tagName,
-        bounds: elementContext.bounds,
-        viewport: elementContext.viewport,
+        selector: developerContext.selector.primary,
+        elementText: developerContext.element.text,
+        elementHtml: developerContext.element.html,
+        tagName: developerContext.element.tag,
+        bounds: developerContext.bounds,
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          devicePixelRatio: window.devicePixelRatio || 1,
+          scrollX: Math.round(window.scrollX),
+          scrollY: Math.round(window.scrollY),
+        },
+        developerContext,
+        screenshotMode,
         screenshot: crop.dataUrl,
         width: crop.width,
         height: crop.height,
@@ -1250,11 +1470,109 @@ async function startMultiAnnotation() {
       elementHtml: annotation.elementHtml,
       bounds: annotation.bounds,
       viewport: annotation.viewport,
+      developerContext: annotation.developerContext,
+      screenshotMode: annotation.screenshotMode || "element",
       captureWidth: annotation.width,
       captureHeight: annotation.height,
       reproductionSteps,
       diagnostics,
     });
+  }
+
+  function resolveAnnotationElement(annotation) {
+    if (annotation.element?.isConnected) return annotation.element;
+    const element = DoppieDevContext.resolve(annotation.developerContext) ||
+      DoppieDevContext.resolve({
+        selector: { primary: annotation.selector, alternatives: [] },
+      });
+    if (element) annotation.element = element;
+    return element;
+  }
+
+  function locateAnnotation(id) {
+    const annotation = getAnnotation(id);
+    const element = annotation && resolveAnnotationElement(annotation);
+    if (!element) {
+      panelMessage.textContent =
+        "Target not found. The page may have changed since this annotation was captured.";
+      return;
+    }
+    closePanel();
+    element.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    window.setTimeout(() => openNote(element, annotation), 280);
+  }
+
+  function buildAgentBundle() {
+    return {
+      schema: "doppie-assist/handoff-v1",
+      sessionId,
+      capturedAt: new Date().toISOString(),
+      page: {
+        title: document.title,
+        url: location.href,
+        path: `${location.pathname}${location.search}${location.hash}`,
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          devicePixelRatio: window.devicePixelRatio || 1,
+        },
+      },
+      developerMode: true,
+      annotations: annotations.map((annotation) => ({
+        id: annotation.id,
+        title: annotation.title,
+        request: annotation.note,
+        feedbackType: annotation.feedbackType,
+        label: annotation.label,
+        selector:
+          annotation.developerContext?.selector?.primary || annotation.selector,
+        screenshotMode: annotation.screenshotMode || "element",
+        screenshot: annotation.screenshot || "",
+        developerContext: annotation.developerContext,
+        issueDescription: buildAnnotationDescription(annotation),
+      })),
+      reproductionSteps,
+      diagnostics,
+    };
+  }
+
+  async function sendToAgent() {
+    if (!annotations.length && !reproductionSteps.length) {
+      panelMessage.textContent =
+        "Add an annotation or record a flow before sending to an agent.";
+      return;
+    }
+    if (!devBridgeConnected) {
+      panelMessage.textContent =
+        "Run $doppie-assist in Codex, then keep this review open.";
+      return;
+    }
+    developerMode = true;
+    sendAgentButton.disabled = true;
+    sendAgentButton.querySelector("span").textContent = "Sending review...";
+    panelMessage.textContent = "Sending developer context to the waiting agent...";
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "dev-bridge-submit",
+        bundle: buildAgentBundle(),
+      });
+      if (!response?.ok)
+        throw new Error(response?.error || "The agent did not accept this review");
+      agentHandoff = {
+        sentAt: Date.now(),
+        directory: response.directory,
+      };
+      panelMessage.textContent =
+        "Review sent. The coding agent now has the screenshots and element context.";
+      await persistSession(true);
+    } catch (error) {
+      agentHandoff = null;
+      panelMessage.textContent =
+        error.message || "Could not send this review to the coding agent.";
+      await refreshDevBridgeStatus();
+    } finally {
+      renderDeveloperState();
+    }
   }
 
   async function saveCreatedIssue(annotation) {
@@ -1303,10 +1621,12 @@ async function startMultiAnnotation() {
     document.removeEventListener("click", onRecordedClick, true);
     document.removeEventListener("change", onRecordedChange, true);
     document.removeEventListener("keydown", onKeyDown, true);
+    document.removeEventListener("wheel", onWheel, true);
     document.removeEventListener("scroll", queueRefresh, true);
     window.removeEventListener("resize", queueRefresh);
     window.removeEventListener("beforeunload", onBeforeUnload);
     window.removeEventListener("doppie-assist:diagnostic", onDiagnosticEvent);
+    clearInterval(bridgeCheckTimer);
     window.dispatchEvent(
       new CustomEvent("doppie-assist:monitor-control", { detail: "stop" }),
     );
@@ -1329,8 +1649,22 @@ async function startMultiAnnotation() {
       return;
     const candidate = event.target;
     if (!(candidate instanceof Element)) return;
-    target = candidate;
-    updateHoverBox();
+    if (candidate !== hoverOrigin) setTargetElement(candidate);
+    else updateHoverBox();
+  }
+
+  function onWheel(event) {
+    if (
+      !event.altKey ||
+      recording ||
+      panel.classList.contains("visible") ||
+      isReviewUi(event.target) ||
+      !targetStack.length
+    )
+      return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    cycleTarget(event.deltaY >= 0 ? 1 : -1);
   }
 
   function onPageClick(event) {
@@ -1371,6 +1705,19 @@ async function startMultiAnnotation() {
     .querySelector('[data-note-action="cancel"]')
     .addEventListener("click", closeNote);
   layer
+    .querySelector('[data-note-action="child"]')
+    .addEventListener("click", () => cycleTarget(-1));
+  layer
+    .querySelector('[data-note-action="parent"]')
+    .addEventListener("click", () => cycleTarget(1));
+  layer.querySelectorAll("[data-capture-mode]").forEach((button) =>
+    button.addEventListener("click", () => {
+      layer
+        .querySelectorAll("[data-capture-mode]")
+        .forEach((item) => item.classList.toggle("active", item === button));
+    }),
+  );
+  layer
     .querySelector('[data-note-action="save"]')
     .addEventListener("click", saveNote);
   layer
@@ -1380,10 +1727,12 @@ async function startMultiAnnotation() {
     .querySelector('[data-panel-action="close"]')
     .addEventListener("click", closePanel);
   submitButton.addEventListener("click", createIssues);
+  sendAgentButton.addEventListener("click", sendToAgent);
   layer
     .querySelector('[data-session-action="cancel"]')
     .addEventListener("click", () => cleanup({ discard: true, silent: true }));
   recordButton.addEventListener("click", () => setRecording(!recording));
+  developerButton.addEventListener("click", toggleDeveloperMode);
   reviewButton.addEventListener("click", openPanel);
   panel
     .querySelector('[data-review-option="parent"]')
@@ -1410,6 +1759,7 @@ async function startMultiAnnotation() {
   document.addEventListener("click", onRecordedClick, true);
   document.addEventListener("change", onRecordedChange, true);
   document.addEventListener("keydown", onKeyDown, true);
+  document.addEventListener("wheel", onWheel, { capture: true, passive: false });
   document.addEventListener("scroll", queueRefresh, true);
   window.addEventListener("resize", queueRefresh);
   window.addEventListener("beforeunload", onBeforeUnload);
@@ -1418,6 +1768,8 @@ async function startMultiAnnotation() {
   populateRouting();
   renderRecordingState();
   renderSession();
+  refreshDevBridgeStatus();
+  bridgeCheckTimer = setInterval(refreshDevBridgeStatus, 2000);
   persistSession(true);
   chrome.runtime.sendMessage({ type: "install-page-monitor" }).catch(() => {});
   if (restoredDraft)
@@ -1636,6 +1988,56 @@ function cropScreenshot(dataUrl, rect) {
           canvas.width,
           canvas.height,
         );
+      resolve({
+        dataUrl: canvas.toDataURL("image/jpeg", 0.92),
+        width: canvas.width,
+        height: canvas.height,
+      });
+    };
+    image.onerror = () => reject(new Error("Could not process screenshot"));
+    image.src = dataUrl;
+  });
+}
+
+function markViewportScreenshot(dataUrl, targetRect, markerNumber) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const maxWidth = 1800;
+      const outputScale = Math.min(1, maxWidth / image.naturalWidth);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * outputScale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * outputScale));
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      const scaleX = canvas.width / window.innerWidth;
+      const scaleY = canvas.height / window.innerHeight;
+      const x = Math.max(1, targetRect.left * scaleX);
+      const y = Math.max(1, targetRect.top * scaleY);
+      const width = Math.max(2, Math.min(canvas.width - x - 1, targetRect.width * scaleX));
+      const height = Math.max(2, Math.min(canvas.height - y - 1, targetRect.height * scaleY));
+      const lineWidth = Math.max(3, Math.round(3 * outputScale));
+      context.strokeStyle = "#f83505";
+      context.lineWidth = lineWidth;
+      context.strokeRect(x, y, width, height);
+
+      const radius = Math.max(13, Math.round(16 * outputScale));
+      const markerX = Math.min(canvas.width - radius - 2, x + width);
+      const markerY = Math.max(radius + 2, y);
+      context.beginPath();
+      context.arc(markerX, markerY, radius, 0, Math.PI * 2);
+      context.fillStyle = "#e8f76b";
+      context.fill();
+      context.lineWidth = Math.max(2, Math.round(2 * outputScale));
+      context.strokeStyle = "#080a0b";
+      context.stroke();
+      context.fillStyle = "#080a0b";
+      context.font = `800 ${Math.max(13, Math.round(15 * outputScale))}px sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(String(markerNumber), markerX, markerY + 1);
+
       resolve({
         dataUrl: canvas.toDataURL("image/jpeg", 0.92),
         width: canvas.width,

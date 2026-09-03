@@ -4,6 +4,7 @@ const LINEAR_REVOKE_URL = "https://api.linear.app/oauth/revoke";
 const LINEAR_SCOPES = "read,write,issues:create";
 const LINEAR_OAUTH_REDIRECT_PATH = "linear";
 const DEFAULT_LINEAR_OAUTH_CLIENT_ID = "e0018f12b51653925dce65a8a48e355f";
+const DEV_BRIDGE_URL = "http://127.0.0.1:47361";
 let refreshPromise = null;
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -365,6 +366,29 @@ const revokeOAuthToken = async (token, tokenType) => {
     throw new Error(`Linear token revocation failed (${response.status})`);
 };
 
+const devBridgeRequest = async (path, options = {}) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeout || 1200);
+  try {
+    const response = await fetch(`${DEV_BRIDGE_URL}${path}`, {
+      method: options.method || "GET",
+      headers: {
+        Accept: "application/json",
+        "X-Doppie-Assist": "browser-extension",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false)
+      throw new Error(payload.error || `Developer bridge failed (${response.status})`);
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "install-page-monitor") {
     if (!sender.tab?.id) {
@@ -386,6 +410,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.tabs
       .captureVisibleTab(sender.tab?.windowId, { format: "png" })
       .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "dev-bridge-status") {
+    devBridgeRequest("/status")
+      .then((status) => sendResponse({ ok: true, connected: true, ...status }))
+      .catch(() => sendResponse({ ok: true, connected: false }));
+    return true;
+  }
+
+  if (message.type === "dev-bridge-submit") {
+    devBridgeRequest("/annotations", {
+      method: "POST",
+      body: message.bundle,
+      timeout: 15000,
+    })
+      .then((result) => sendResponse({ ok: true, ...result }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
@@ -559,7 +601,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     });
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["issue-format.js", "content.js"],
+      files: ["dev-context.js", "issue-format.js", "content.js"],
     });
     await chrome.tabs.sendMessage(tab.id, { type });
   }
