@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Doppie Assist",
-  "version": "0.21.2",
+  "version": "0.22.0",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv5Ut489NCChCP4yy+18syW9Zn3bvq5u5uP/nl87XnaOkX1QsrM4/CPShBY6SDVj7tyV03IECbEfgdWifNkv1kdbdFs/xrmkwD5NrkJODFyx/HO50L2Hm6W5YpgVqp4Tb/I7ukbtseWwc402ew5EYzBBO6kAmRAg2nAigO5RqIhBiO4ExGoeVTjieorIYY9UmyprTnaVPQQI4XhZl7kQ2UoCMS1jPf/OgC/fbQxggvallol3NPGMFpWtKwLBaYmWW1p1cnKpx/H5DSIQAgRYu5H6Mhz8N6CZW8ttVEgfBK524KHD8svQoYLvaZAn//h2avt9G2MwcFx6wRoOhuXdrBQIDAQAB",
   "description": "Capture, annotate, and turn any part of the web into a Linear issue.",
   "permissions": [

@@ -167,6 +167,8 @@ async function startMultiAnnotation() {
     };
   });
   const diagnostics = [...(restoredDraft?.diagnostics || [])];
+  const networkRequests = [...(restoredDraft?.networkRequests || [])];
+  const sessionEvents = [...(restoredDraft?.sessionEvents || [])];
   const reproductionSteps = [...(restoredDraft?.reproductionSteps || [])];
   let recording = Boolean(restoredDraft?.recording);
   let parentMode = Boolean(restoredDraft?.parentMode);
@@ -175,7 +177,7 @@ async function startMultiAnnotation() {
   let sharedRoutingDraft = restoredDraft?.sharedRouting || null;
   let defaultFeedbackType = restoredDraft?.defaultFeedbackType || "ui";
   let developerMode =
-    restoredDraft?.developerMode ?? Boolean(savedDeveloperMode);
+    restoredDraft?.developerMode ?? savedDeveloperMode !== false;
   let devBridgeConnected = false;
   let agentHandoff = restoredDraft?.agentHandoff || null;
   const flowDraft = {
@@ -232,9 +234,9 @@ async function startMultiAnnotation() {
       <div class="doppie-review-list"></div>
       <div class="doppie-review-options">
         <label><input type="checkbox" data-review-option="parent" ${parentMode ? "checked" : ""}><span><strong>Group under parent issue</strong><small>One review summary with child issues</small></span></label>
-        <div><b data-diagnostic-count>${diagnostics.length}</b> diagnostics <span>·</span> <b data-step-count>${reproductionSteps.length}</b> steps</div>
+        <div><b data-diagnostic-count>${diagnostics.length}</b> diagnostics <span>·</span> <b data-network-count>${networkRequests.length}</b> requests <span>·</span> <b data-step-count>${reproductionSteps.length}</b> steps</div>
       </div>
-      <details class="doppie-context-preview"><summary>Captured context</summary><div><strong>Reproduction</strong><ol data-context-steps></ol><strong>Diagnostics</strong><ul data-context-diagnostics></ul></div></details>
+      <details class="doppie-context-preview"><summary>Captured context</summary><div><strong>Reproduction</strong><ol data-context-steps></ol><strong>Network</strong><ul data-context-network></ul><strong>Session events</strong><ul data-context-events></ul><strong>Diagnostics</strong><ul data-context-diagnostics></ul></div></details>
       <div class="doppie-routing">
         <label><span class="doppie-field-label">${doppieUiIcon("team")}Team</span><select data-route="team"></select></label>
         <label><span class="doppie-field-label">${doppieUiIcon("priority")}Priority</span><select data-route="priority"><option value="3">Normal</option><option value="2">High</option><option value="1">Urgent</option><option value="4">Low</option></select></label>
@@ -297,7 +299,9 @@ async function startMultiAnnotation() {
           createdAt: sessionStartedAt,
           updatedAt: Date.now(),
           annotations: serializableAnnotations(),
-          diagnostics: diagnostics.slice(-40),
+          diagnostics: diagnostics.slice(-60),
+          networkRequests: networkRequests.slice(-100),
+          sessionEvents: sessionEvents.slice(-80),
           reproductionSteps: reproductionSteps.slice(-20),
           recording,
           parentMode,
@@ -444,12 +448,23 @@ async function startMultiAnnotation() {
     } catch (_) {
       return;
     }
-    if (item.type === "navigation") {
-      if (recording) recordStep(item.message, null, "navigation");
-      return;
-    }
-    diagnostics.push(item);
-    if (diagnostics.length > 40) diagnostics.splice(0, diagnostics.length - 40);
+    if (item.type === "navigation" && recording)
+      recordStep(item.message, null, "navigation");
+    const collection =
+      item.category === "network"
+        ? networkRequests
+        : item.category === "event"
+          ? sessionEvents
+          : diagnostics;
+    collection.push(item);
+    const limit =
+      collection === networkRequests
+        ? 100
+        : collection === sessionEvents
+          ? 80
+          : 60;
+    if (collection.length > limit)
+      collection.splice(0, collection.length - limit);
     renderSession();
     persistSession();
   }
@@ -726,6 +741,8 @@ async function startMultiAnnotation() {
     recordButton.querySelector("b").textContent = reproductionSteps.length;
     layer.querySelector("[data-diagnostic-count]").textContent =
       diagnostics.length;
+    layer.querySelector("[data-network-count]").textContent =
+      networkRequests.length;
     layer.querySelector("[data-step-count]").textContent =
       reproductionSteps.length;
     updatePins();
@@ -793,7 +810,11 @@ async function startMultiAnnotation() {
       ? `${parentIssue.identifier} created as review parent`
       : "One review summary with child issues";
     const contextPreview = panel.querySelector(".doppie-context-preview");
-    contextPreview.hidden = !reproductionSteps.length && !diagnostics.length;
+    contextPreview.hidden =
+      !reproductionSteps.length &&
+      !networkRequests.length &&
+      !sessionEvents.length &&
+      !diagnostics.length;
     contextPreview.querySelector("[data-context-steps]").innerHTML =
       reproductionSteps.length
         ? reproductionSteps
@@ -801,6 +822,26 @@ async function startMultiAnnotation() {
             .map((step) => `<li>${escapeMarkup(step.action)}</li>`)
             .join("")
         : "<li>No recorded steps</li>";
+    contextPreview.querySelector("[data-context-network]").innerHTML =
+      networkRequests.length
+        ? networkRequests
+            .slice(-8)
+            .map(
+              (item) =>
+                `<li><b>${escapeMarkup(`${item.method || "GET"} ${item.status ?? "pending"}`)}</b> ${escapeMarkup(item.url)}</li>`,
+            )
+            .join("")
+        : "<li>No captured requests</li>";
+    contextPreview.querySelector("[data-context-events]").innerHTML =
+      sessionEvents.length
+        ? sessionEvents
+            .slice(-8)
+            .map(
+              (item) =>
+                `<li><b>${escapeMarkup(item.type)}</b> ${escapeMarkup(item.message)}</li>`,
+            )
+            .join("")
+        : "<li>No captured events</li>";
     contextPreview.querySelector("[data-context-diagnostics]").innerHTML =
       diagnostics.length
         ? diagnostics
@@ -1271,6 +1312,8 @@ async function startMultiAnnotation() {
           label: "Recorded reproduction flow",
           reproductionSteps,
           diagnostics,
+          networkRequests,
+          sessionEvents,
         }),
       };
       if (sharedRouting.assigneeId) input.assigneeId = sharedRouting.assigneeId;
@@ -1339,6 +1382,8 @@ async function startMultiAnnotation() {
           annotations,
           reproductionSteps,
           diagnostics,
+          networkRequests,
+          sessionEvents,
         }),
       };
       if (sharedRouting.assigneeId)
@@ -1476,6 +1521,8 @@ async function startMultiAnnotation() {
       captureHeight: annotation.height,
       reproductionSteps,
       diagnostics,
+      networkRequests,
+      sessionEvents,
     });
   }
 
@@ -1533,6 +1580,8 @@ async function startMultiAnnotation() {
       })),
       reproductionSteps,
       diagnostics,
+      networkRequests,
+      sessionEvents,
     };
   }
 

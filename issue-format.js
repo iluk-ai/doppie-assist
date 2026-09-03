@@ -64,7 +64,7 @@
     Object.fromEntries(
       Object.entries(value).filter(
         ([, item]) =>
-          item !== undefined && item !== null && item !== "" && item !== false,
+          item !== undefined && item !== null && item !== "",
       ),
     );
 
@@ -86,6 +86,35 @@
         url: item.url,
         status: item.status,
         method: item.method,
+      }),
+    );
+
+  const compactNetwork = (requests = []) =>
+    requests.slice(-40).map((item) =>
+      compactObject({
+        type: item.type,
+        resourceType: item.resourceType,
+        method: item.method,
+        status: item.status,
+        ok: item.ok,
+        durationMs: item.durationMs,
+        contentType: item.contentType,
+        size: item.size,
+        encodedSize: item.encodedSize,
+        protocol: item.protocol,
+        redirected: item.redirected,
+        url: item.url,
+        at: item.at,
+      }),
+    );
+
+  const compactEvents = (events = []) =>
+    events.slice(-30).map((item) =>
+      compactObject({
+        type: item.type,
+        message: clean(item.message).slice(0, 300),
+        url: item.url,
+        at: item.at,
       }),
     );
 
@@ -145,6 +174,8 @@
       FEEDBACK_TYPES[context.feedbackType] || FEEDBACK_TYPES.ui;
     const reproductionSteps = compactSteps(context.reproductionSteps);
     const diagnostics = compactDiagnostics(context.diagnostics);
+    const networkRequests = compactNetwork(context.networkRequests);
+    const sessionEvents = compactEvents(context.sessionEvents);
     const developerContext = context.developerContext || null;
     const target = compactObject({
       mode: context.mode || "page",
@@ -163,7 +194,7 @@
       format: context.captureFormat || (context.screenshot ? "image/jpeg" : ""),
     });
     const agentContext = {
-      schema: "doppie-assist/v2",
+      schema: "doppie-assist/v3",
       request,
       feedbackType: feedbackType.label,
       page: compactObject({ title: context.pageTitle, url, path }),
@@ -172,6 +203,8 @@
       capture,
       reproductionSteps,
       diagnostics,
+      networkRequests,
+      sessionEvents,
     };
     const targetLines = [
       `- **Feedback type:** ${feedbackType.label}`,
@@ -239,6 +272,28 @@
           .join("\n")}\n\`\`\``,
       );
 
+    if (networkRequests.length)
+      sections.push(
+        `## Network activity\n\`\`\`text\n${networkRequests
+          .slice(-20)
+          .map((item) => {
+            const result = item.status ?? (item.ok ? "ok" : "pending");
+            const duration = Number.isFinite(item.durationMs)
+              ? ` · ${item.durationMs}ms`
+              : "";
+            return `[${item.type || "request"} · ${item.method || "GET"} · ${result}${duration}] ${item.url || "Unknown URL"}`;
+          })
+          .join("\n")}\n\`\`\``,
+      );
+
+    if (sessionEvents.length)
+      sections.push(
+        `## Session events\n${sessionEvents
+          .slice(-15)
+          .map((item) => `- **${markdownText(item.type || "event")}** ${markdownText(item.message)}`)
+          .join("\n")}`,
+      );
+
     sections.push(
       `## Acceptance criteria\n${[
         "Apply the requested change to the identified target.",
@@ -270,6 +325,8 @@
       feedbackType: "ui",
       reproductionSteps: context.reproductionSteps,
       diagnostics: context.diagnostics,
+      networkRequests: context.networkRequests,
+      sessionEvents: context.sessionEvents,
     });
     const childPlan = annotations.length
       ? annotations

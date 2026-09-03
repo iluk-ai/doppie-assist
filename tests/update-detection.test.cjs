@@ -15,6 +15,7 @@ const makeHarness = () => {
   const badgeTitles = [];
   let messageListener;
   let alarmListener;
+  let installedListener;
   let fetchCount = 0;
 
   const chrome = {
@@ -31,8 +32,12 @@ const makeHarness = () => {
     commands: { onCommand: { addListener() {} } },
     identity: { getRedirectURL: () => "https://example.chromiumapp.org/linear" },
     runtime: {
-      getManifest: () => ({ version: "0.21.1" }),
-      onInstalled: { addListener() {} },
+      getManifest: () => ({ version: "0.22.0" }),
+      onInstalled: {
+        addListener(listener) {
+          installedListener = listener;
+        },
+      },
       onStartup: { addListener() {} },
       onMessage: {
         addListener(listener) {
@@ -106,6 +111,9 @@ const makeHarness = () => {
     get fetchCount() {
       return fetchCount;
     },
+    get installedListener() {
+      return installedListener;
+    },
     sendMessage,
     state,
   };
@@ -134,4 +142,11 @@ test("detects and caches a newer GitHub release", async () => {
 test("registers the periodic update alarm listener", () => {
   const harness = makeHarness();
   assert.equal(typeof harness.alarmListener, "function");
+});
+
+test("enables developer context by default on installation", async () => {
+  const harness = makeHarness();
+  harness.installedListener();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(harness.state.developerMode, true);
 });

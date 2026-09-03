@@ -102,6 +102,9 @@ async function materializeBundle(bundle) {
     `- URL: ${output.page?.url || "Unknown"}`,
     `- Annotations: ${output.annotations.length}`,
     `- Recorded steps: ${(output.reproductionSteps || []).length}`,
+    `- Network requests: ${(output.networkRequests || []).length}`,
+    `- Session events: ${(output.sessionEvents || []).length}`,
+    `- Diagnostics: ${(output.diagnostics || []).length}`,
     "",
     ...output.annotations.flatMap((annotation, index) => [
       `## ${index + 1}. ${annotation.title || "Untitled annotation"}`,
@@ -114,6 +117,34 @@ async function materializeBundle(bundle) {
       annotation.issueDescription || "",
       "",
     ]),
+    ...(output.networkRequests?.length
+      ? [
+          "## Network activity",
+          "",
+          ...output.networkRequests.slice(-40).map((item) => {
+            const summary = [
+              item.type || "request",
+              item.method || "GET",
+              item.status ?? (item.ok ? "ok" : "pending"),
+              Number.isFinite(item.durationMs) ? `${item.durationMs}ms` : "",
+            ]
+              .filter(Boolean)
+              .join(" | ");
+            return `- [${summary}] ${item.url || "Unknown URL"}`;
+          }),
+          "",
+        ]
+      : []),
+    ...(output.sessionEvents?.length
+      ? [
+          "## Session events",
+          "",
+          ...output.sessionEvents
+            .slice(-30)
+            .map((item) => `- ${item.type || "event"}: ${item.message || ""}`),
+          "",
+        ]
+      : []),
   ].join("\n");
 
   await writeFile(bundlePath, `${JSON.stringify(output, null, 2)}\n`, {

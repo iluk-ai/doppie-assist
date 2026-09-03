@@ -63,6 +63,16 @@ test("listener materializes one browser handoff and exits", async (t) => {
       ],
       reproductionSteps: [],
       diagnostics: [],
+      networkRequests: [
+        {
+          type: "fetch",
+          method: "GET",
+          status: 200,
+          durationMs: 32,
+          url: "https://example.test/api/settings",
+        },
+      ],
+      sessionEvents: [{ type: "click", message: 'Click button "Save"' }],
     }),
   });
   const result = await response.json();
@@ -73,7 +83,12 @@ test("listener materializes one browser handoff and exits", async (t) => {
   assert.equal(output.schema, "doppie-assist/handoff-v1");
   assert.equal(output.annotations[0].screenshot, undefined);
   assert.ok(output.annotations[0].screenshotPath.endsWith("annotation-01.png"));
+  assert.equal(output.networkRequests[0].status, 200);
+  assert.equal(output.sessionEvents[0].type, "click");
   assert.equal(await fs.readFile(output.annotations[0].screenshotPath, "utf8"), "hello");
-  assert.match(await fs.readFile(result.briefPath, "utf8"), /Tighten spacing/);
+  const brief = await fs.readFile(result.briefPath, "utf8");
+  assert.match(brief, /Tighten spacing/);
+  assert.match(brief, /Network activity/);
+  assert.match(brief, /Click button "Save"/);
   await fs.rm(result.directory, { recursive: true, force: true });
 });

@@ -177,7 +177,7 @@ async function loadState() {
   ]);
   latestCapture = state.captures?.[0];
   linearConfig = state.linearConfig;
-  developerMode = Boolean(state.developerMode);
+  developerMode = state.developerMode !== false;
   $("developer-mode").checked = developerMode;
   if (linearConfig?.apiKey && !Array.isArray(linearConfig.users)) {
     const migrated = await chrome.runtime.sendMessage({

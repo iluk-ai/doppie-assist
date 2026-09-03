@@ -112,11 +112,12 @@ const scheduleUpdateChecks = async () => {
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(
-    ["captures", "issues", "linearConfig", "linearAuth"],
+    ["captures", "issues", "linearConfig", "linearAuth", "developerMode"],
     (result) => {
       const updates = {};
       if (!result.captures) updates.captures = [];
       if (!result.issues) updates.issues = [];
+      if (result.developerMode === undefined) updates.developerMode = true;
       if (!result.linearAuth && result.linearConfig?.apiKey) {
         updates.linearAuth = {
           type: "apiKey",

@@ -61,26 +61,40 @@
 
   const implicitRoles = {
     a: "link",
+    area: "link",
     article: "article",
     aside: "complementary",
     button: "button",
+    datalist: "listbox",
     details: "group",
     dialog: "dialog",
+    fieldset: "group",
+    figure: "figure",
     footer: "contentinfo",
     form: "form",
     header: "banner",
+    hr: "separator",
     img: "img",
     li: "listitem",
     main: "main",
+    menu: "list",
     nav: "navigation",
     ol: "list",
+    optgroup: "group",
     option: "option",
+    output: "status",
     progress: "progressbar",
     section: "region",
     select: "combobox",
     summary: "button",
     table: "table",
+    tbody: "rowgroup",
+    td: "cell",
     textarea: "textbox",
+    tfoot: "rowgroup",
+    th: "columnheader",
+    thead: "rowgroup",
+    tr: "row",
     ul: "list",
   };
 
@@ -91,6 +105,7 @@
     number: "spinbutton",
     radio: "radio",
     range: "slider",
+    reset: "button",
     search: "searchbox",
     submit: "button",
     tel: "textbox",
@@ -272,10 +287,12 @@
 
   function implicitRole(element) {
     const tag = element.tagName.toLowerCase();
-    if (tag === "a" && !element.hasAttribute("href")) return null;
+    if (["a", "area"].includes(tag) && !element.hasAttribute("href")) return null;
     if (tag === "input")
       return inputRoles[(element.getAttribute("type") || "text").toLowerCase()] ||
         "textbox";
+    if (tag === "img" && element.getAttribute("alt") === "")
+      return "presentation";
     if (/^h[1-6]$/.test(tag)) return "heading";
     return implicitRoles[tag] || null;
   }
@@ -306,7 +323,7 @@
     const tabIndex = element.tabIndex;
     const nativeFocusable =
       ["button", "input", "select", "textarea"].includes(tag) ||
-      (tag === "a" && element.hasAttribute("href"));
+      (["a", "area"].includes(tag) && element.hasAttribute("href"));
     const state = {};
     for (const name of [
       "aria-checked",
@@ -318,13 +335,36 @@
     ]) {
       if (element.hasAttribute(name)) state[name] = element.getAttribute(name);
     }
+    const ariaState = (name) => {
+      const value = state[name];
+      if (value === "true") return true;
+      if (value === "false") return false;
+      return value ?? null;
+    };
     return {
       role: element.getAttribute("role") || implicitRole(element),
       name: accessibleName(element),
+      description: compactText(
+        (element.getAttribute("aria-describedby") || "")
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((id) => document.getElementById(id)?.textContent || "")
+          .join(" "),
+      ),
       focusable: nativeFocusable || tabIndex >= 0,
       tabIndex,
       disabled:
         element.disabled === true || element.getAttribute("aria-disabled") === "true",
+      expanded: ariaState("aria-expanded"),
+      pressed: ariaState("aria-pressed"),
+      checked:
+        typeof element.checked === "boolean"
+          ? element.checked
+          : ariaState("aria-checked"),
+      selected:
+        typeof element.selected === "boolean"
+          ? element.selected
+          : ariaState("aria-selected"),
       states: state,
     };
   }
@@ -395,11 +435,34 @@
     };
   }
 
-  function capture(element, { debug = false } = {}) {
+  function getParentContext(element) {
+    const parent = element.parentElement;
+    if (!parent || parent === document.body || parent === document.documentElement)
+      return null;
+    const style = getComputedStyle(parent);
+    return {
+      ...compactElement(parent),
+      bounds: boundsFor(parent),
+      styles: styleSnapshot(style, [
+        "display",
+        "position",
+        "overflow",
+        "gap",
+        "flex-direction",
+        "flex-wrap",
+        "justify-content",
+        "align-items",
+        "grid-template-columns",
+        "grid-template-rows",
+      ]),
+    };
+  }
+
+  function capture(element, { debug = true } = {}) {
     const style = getComputedStyle(element);
     const accessibility = getAccessibility(element);
     return {
-      schema: "doppie-assist/dev-context-v1",
+      schema: "doppie-assist/dev-context-v2",
       selector: {
         primary: generateSelector(element),
         alternatives: selectorCandidates(element).slice(1),
@@ -424,8 +487,13 @@
           : {}),
       },
       accessibility,
+      parentContext: debug ? getParentContext(element) : null,
       ancestry: debug
-        ? [element.parentElement, element.parentElement?.parentElement]
+        ? [
+            element.parentElement,
+            element.parentElement?.parentElement,
+            element.parentElement?.parentElement?.parentElement,
+          ]
             .filter(Boolean)
             .map(compactElement)
         : [],

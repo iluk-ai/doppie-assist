@@ -37,13 +37,35 @@ test("agent issue format includes developer and route context", () => {
       },
       styles: { key: { display: "grid", gap: "24px" } },
     },
+    networkRequests: [
+      {
+        type: "fetch",
+        method: "POST",
+        status: 422,
+        ok: false,
+        durationMs: 84.2,
+        contentType: "application/json",
+        url: "https://example.test/api/settings?team=%5Bredacted%5D",
+      },
+    ],
+    sessionEvents: [
+      {
+        type: "click",
+        message: 'Click button "Save settings"',
+        url: "https://example.test/settings",
+      },
+    ],
   });
 
-  assert.match(description, /doppie-assist\/v2/);
+  assert.match(description, /doppie-assist\/v3/);
   assert.match(description, /URL path:\*\* `\/settings\?tab=team`/);
   assert.match(description, /Developer context/);
   assert.match(description, /role `region`/);
   assert.match(description, /"capture": \{/);
   assert.match(description, /"mode": "element"/);
+  assert.match(description, /Network activity/);
+  assert.match(description, /POST · 422 · 84.2ms/);
+  assert.match(description, /Session events/);
+  assert.match(description, /Save settings/);
   assert.doesNotMatch(description, /data:image/);
 });
