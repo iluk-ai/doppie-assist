@@ -83,6 +83,8 @@ npx skills add iluk-ai/doppie-assist --skill doppie-assist --global --copy
 
 The interactive installer detects supported agents and lets the user choose where to install the skill. Do not add `--agent` or `--yes` when presenting this installation flow. The repository must be public, or the user must already have authenticated Git access and permission to clone it.
 
+The same command is available under **Coding agent skill** in the extension settings. Its copy button places the normalized one-line command on the clipboard so it can be pasted directly into a terminal.
+
 Then invoke the installed skill using the selected agent's skill interface. In Codex:
 
 ```text

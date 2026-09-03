@@ -1715,6 +1715,84 @@ form {
   box-shadow: none;
 }
 
+.skill-install-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 31px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: #f7efd9;
+  box-shadow: 3px 3px 0 rgba(8, 10, 11, 0.16);
+}
+.skill-install-copy,
+.skill-install-copy strong,
+.skill-install-copy small,
+.skill-install-copy code {
+  min-width: 0;
+  display: block;
+}
+.skill-install-copy strong {
+  font-size: 10px;
+}
+.skill-install-copy small {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 8px;
+}
+.skill-install-copy code {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink);
+  font:
+    7px ui-monospace,
+    Menlo,
+    monospace;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.skill-install-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: var(--green);
+  color: #fff;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.skill-install-icon svg,
+.skill-install-card > button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.skill-install-card > button {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+  background: var(--lime);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.skill-install-card > button:hover {
+  background: #d9ec50;
+}
+.skill-install-card > button.copied {
+  background: var(--secondary);
+}
+
 .settings-view .back {
   margin: 10px 0 14px;
 }
@@ -1725,14 +1803,14 @@ form {
   margin: 8px 0;
 }
 .settings-view .shortcut-list {
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-top: 8px;
+  padding-top: 7px;
 }
 .settings-view .shortcut-list > div {
-  height: 30px;
+  height: 28px;
 }
 .build-version {
-  margin: 18px 0 0;
+  margin: 6px 0 0;
   color: var(--muted);
   font:
     700 8px ui-monospace,

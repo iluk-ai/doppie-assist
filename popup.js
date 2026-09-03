@@ -745,6 +745,22 @@ $("check-update").addEventListener("click", () => {
     );
   else checkForUpdates({ force: true });
 });
+$("copy-skill-command").addEventListener("click", async () => {
+  const button = $("copy-skill-command");
+  const icon = button.querySelector("use");
+  const command = $("skill-install-command").textContent.replace(/\s+/g, " ").trim();
+  const copied = await copyText(command);
+  if (!copied) return toast("Could not copy install command");
+  icon.setAttribute("href", "#icon-check");
+  button.classList.add("copied");
+  button.setAttribute("aria-label", "Install command copied");
+  toast("Skill install command copied");
+  setTimeout(() => {
+    icon.setAttribute("href", "#icon-copy");
+    button.classList.remove("copied");
+    button.setAttribute("aria-label", "Copy skill install command");
+  }, 1800);
+});
 chrome.storage.onChanged?.addListener((changes, areaName) => {
   if (areaName !== "local" || !changes.extensionUpdateDownload) return;
   updateDownload = changes.extensionUpdateDownload.newValue || null;
