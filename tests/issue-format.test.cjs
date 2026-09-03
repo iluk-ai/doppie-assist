@@ -27,6 +27,8 @@ test("agent issue format includes developer and route context", () => {
     screenshotMode: "element",
     captureWidth: 640,
     captureHeight: 320,
+    region: { x: 112, y: 84, width: 640, height: 320 },
+    viewport: { width: 1440, height: 900, devicePixelRatio: 2 },
     developerContext: {
       accessibility: { role: "region", name: "Team settings", focusable: false },
       boxModel: {
@@ -70,6 +72,9 @@ test("agent issue format includes developer and route context", () => {
   assert.match(description, /role `region`/);
   assert.match(description, /"capture": \{/);
   assert.match(description, /"mode": "element"/);
+  assert.match(description, /Selected region:\*\* x 112, y 84, 640 x 320px/);
+  assert.match(description, /Viewport:\*\* 1440 x 900px @ 2x/);
+  assert.match(description, /"region": \{/);
   assert.match(description, /Network activity/);
   assert.match(description, /POST · 422 · 84.2ms/);
   assert.match(description, /Session events/);

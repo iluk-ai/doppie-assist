@@ -92,8 +92,51 @@ function startTargetCapture() {
     origin = null;
     if (rect.width < 24 || rect.height < 24) return cleanup();
     cleanup();
-    await captureAndEdit(rect, { mode: "region", label: "Selected region" });
+    await captureAndEdit(rect, {
+      mode: "region",
+      label: "Selected region",
+      ...getRegionCaptureContext(rect),
+    });
   });
+}
+
+function getRegionCaptureContext(rect) {
+  const centerX = Math.max(
+    0,
+    Math.min(window.innerWidth - 1, rect.x + rect.width / 2),
+  );
+  const centerY = Math.max(
+    0,
+    Math.min(window.innerHeight - 1, rect.y + rect.height / 2),
+  );
+  const extensionUi =
+    ".margin-capture-layer, .margin-element-layer, .margin-editor-layer, .doppie-review-layer, .margin-toast";
+  const target = (document.elementsFromPoint?.(centerX, centerY) || []).find(
+    (element) => element instanceof Element && !element.closest(extensionUi),
+  );
+  let developerContext = null;
+  try {
+    if (target && globalThis.DoppieDevContext)
+      developerContext = DoppieDevContext.capture(target);
+  } catch (_) {
+    developerContext = null;
+  }
+  return {
+    region: {
+      x: Math.round(rect.x),
+      y: Math.round(rect.y),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    },
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio || 1,
+      scrollX: Math.round(window.scrollX),
+      scrollY: Math.round(window.scrollY),
+    },
+    developerContext,
+  };
 }
 
 function doppieUiIcon(name) {
@@ -2396,6 +2439,9 @@ function openAnnotationEditor(crop) {
       title: document.title,
       mode: crop.mode,
       label: crop.label,
+      region: crop.region || null,
+      viewport: crop.viewport || null,
+      developerContext: crop.developerContext || null,
       createdAt: Date.now(),
     };
     const { captures = [] } = await chrome.storage.local.get("captures");

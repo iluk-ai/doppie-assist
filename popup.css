@@ -405,6 +405,47 @@ body {
   text-decoration: underline;
   font-size: 10px;
 }
+.preview-bar > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.preview-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+.preview-bar .capture-context-trigger {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+}
+.capture-context-trigger svg,
+.context-copy svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.preview-bar #remove-capture {
+  margin: 0;
+}
 .preview.has-image .empty-preview {
   display: none;
 }
@@ -756,6 +797,134 @@ footer {
   padding: 0 20px 20px;
   overflow: auto;
   background: var(--paper);
+}
+.capture-context-view {
+  position: absolute;
+  z-index: 7;
+  inset: 52px 0 44px;
+  padding: 0 20px 22px;
+  overflow: auto;
+  background: #fff;
+}
+.context-toolbar {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0 8px;
+  background: #fff;
+}
+.capture-context-view .back {
+  margin: 0;
+}
+.context-copy {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.context-title {
+  padding: 8px 0 14px;
+}
+.context-title p {
+  margin: 0 0 5px;
+  color: var(--red);
+  font:
+    800 9px ui-monospace,
+    Menlo,
+    monospace;
+}
+.context-title h1 {
+  margin: 0;
+  font: 400 27px/1.1 "DM Serif Display", Georgia, serif;
+}
+.context-title span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.context-section {
+  padding: 12px 0;
+  border-top: 2px solid var(--ink);
+}
+.context-section h2 {
+  margin: 0 0 9px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.context-section dl {
+  margin: 0;
+}
+.context-section dl > div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(8, 10, 11, 0.14);
+}
+.context-section dt {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+.context-section dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+.context-section code,
+.style-grid code {
+  font:
+    9px/1.45 ui-monospace,
+    Menlo,
+    monospace;
+}
+.context-lines {
+  display: grid;
+  gap: 5px;
+  font-size: 10px;
+}
+.style-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 6px 10px;
+  font-size: 9px;
+}
+.style-grid > span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.style-grid code {
+  overflow-wrap: anywhere;
+}
+.context-section pre {
+  max-height: 150px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 2px solid var(--ink);
+  border-left: 7px solid var(--red);
+  border-radius: 2px;
+  background: #fffaf0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    9px/1.45 ui-monospace,
+    Menlo,
+    monospace;
 }
 .routing-view .back {
   margin-bottom: 18px;

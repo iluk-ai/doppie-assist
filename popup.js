@@ -25,11 +25,13 @@ const toast = (message) => {
 function showCompose() {
   document.body.classList.remove("auth-required");
   $("settings-view").classList.add("hidden");
+  $("capture-context-view").classList.add("hidden");
   $("compose-view").classList.remove("hidden");
 }
 
 function showSettings() {
   $("compose-view").classList.add("hidden");
+  $("capture-context-view").classList.add("hidden");
   $("settings-view").classList.remove("hidden");
   if (isLinearConnected()) checkForUpdates();
 }
@@ -38,6 +40,7 @@ function showAuthScreen() {
   document.body.classList.add("auth-required");
   $("routing-view").classList.add("hidden");
   $("drafts-view").classList.add("hidden");
+  $("capture-context-view").classList.add("hidden");
   $("compose-view").classList.add("hidden");
   $("settings-view").classList.remove("hidden");
 }
@@ -269,11 +272,115 @@ function isLinearConnected() {
 
 function renderCapture() {
   $("preview").classList.toggle("has-image", Boolean(latestCapture));
-  if (!latestCapture) return;
+  if (!latestCapture) {
+    $("capture-image").removeAttribute("src");
+    $("capture-context-view").classList.add("hidden");
+    return;
+  }
   $("capture-image").src = latestCapture.dataUrl;
   $("capture-size").textContent = latestCapture.label
     ? `${latestCapture.label} · ${latestCapture.width} × ${latestCapture.height}`
     : `${latestCapture.width} × ${latestCapture.height} capture`;
+}
+
+function captureContextPayload(capture = latestCapture) {
+  if (!capture) return null;
+  const developerContext = capture.developerContext || null;
+  return {
+    schema: "doppie-assist/capture-context-v1",
+    page: {
+      title: capture.title || activeTab?.title || "Current page",
+      url: capture.url || activeTab?.url || "",
+      path: DoppieIssueFormat.pagePath(capture.url || activeTab?.url || ""),
+    },
+    capture: {
+      mode: capture.mode || "page",
+      label: capture.label || null,
+      width: capture.width,
+      height: capture.height,
+      region: capture.region || null,
+      viewport: capture.viewport || null,
+    },
+    target: developerContext
+      ? {
+          selector: developerContext.selector,
+          element: developerContext.element,
+          bounds: developerContext.bounds,
+          boxModel: developerContext.boxModel,
+          styles: developerContext.styles,
+          accessibility: developerContext.accessibility,
+          parentContext: developerContext.parentContext,
+          ancestry: developerContext.ancestry,
+          fingerprint: developerContext.fingerprint,
+        }
+      : null,
+  };
+}
+
+function contextCode(value) {
+  return `<code>${escapeHtml(String(value || "Not captured"))}</code>`;
+}
+
+function renderCaptureContext() {
+  const payload = captureContextPayload();
+  if (!payload) return;
+  const target = payload.target;
+  const element = target?.element || {};
+  const accessibility = target?.accessibility || {};
+  const region = payload.capture.region;
+  const bounds = target?.bounds;
+  const viewport = payload.capture.viewport;
+  const keyStyles = Object.entries(target?.styles?.key || {}).slice(0, 12);
+  const geometry = [
+    region
+      ? `Region ${region.width} × ${region.height}px at ${region.x}, ${region.y}`
+      : "",
+    bounds
+      ? `Target ${bounds.width} × ${bounds.height}px at ${bounds.x}, ${bounds.y}`
+      : "",
+    viewport
+      ? `Viewport ${viewport.width} × ${viewport.height}px @ ${viewport.devicePixelRatio || 1}x`
+      : "",
+  ].filter(Boolean);
+  $("capture-context-summary").textContent = target
+    ? `${element.tag || "element"} captured at the region center`
+    : "Page and capture metadata";
+  $("capture-context-content").innerHTML = `
+    <section class="context-section">
+      <h2>Page</h2>
+      <dl>
+        <div><dt>Path</dt><dd>${contextCode(payload.page.path)}</dd></div>
+        <div><dt>URL</dt><dd>${contextCode(payload.page.url)}</dd></div>
+      </dl>
+    </section>
+    <section class="context-section">
+      <h2>DOM target</h2>
+      <dl>
+        <div><dt>Element</dt><dd>${escapeHtml(element.tag || "No target captured")}${element.id ? `#${escapeHtml(element.id)}` : ""}</dd></div>
+        <div><dt>Selector</dt><dd>${contextCode(target?.selector?.primary)}</dd></div>
+        <div><dt>Accessible name</dt><dd>${escapeHtml(accessibility.name || "Not exposed")}</dd></div>
+        <div><dt>Role</dt><dd>${contextCode(accessibility.role || "none")}</dd></div>
+      </dl>
+    </section>
+    <section class="context-section">
+      <h2>Geometry</h2>
+      <div class="context-lines">${geometry.length ? geometry.map((line) => `<span>${escapeHtml(line)}</span>`).join("") : "<span>Not captured</span>"}</div>
+    </section>
+    ${
+      keyStyles.length
+        ? `<section class="context-section"><h2>Key styles</h2><div class="style-grid">${keyStyles
+            .map(
+              ([property, value]) =>
+                `<span>${escapeHtml(property)}</span>${contextCode(value)}`,
+            )
+            .join("")}</div></section>`
+        : ""
+    }
+    ${
+      element.html
+        ? `<section class="context-section"><h2>Sanitized HTML</h2><pre>${escapeHtml(element.html)}</pre></section>`
+        : ""
+    }`;
 }
 
 function renderConnection() {
@@ -437,6 +544,21 @@ $("remove-capture").addEventListener("click", async () => {
   renderCapture();
 });
 
+$("show-capture-context").addEventListener("click", () => {
+  if (!latestCapture) return;
+  renderCaptureContext();
+  $("capture-context-view").classList.remove("hidden");
+});
+$("close-capture-context").addEventListener("click", () =>
+  $("capture-context-view").classList.add("hidden"),
+);
+$("copy-capture-context").addEventListener("click", async () => {
+  const payload = captureContextPayload();
+  if (!payload) return;
+  const copied = await copyText(JSON.stringify(payload, null, 2));
+  toast(copied ? "Developer context copied" : "Could not copy context");
+});
+
 document.querySelectorAll("#priority button").forEach((button) =>
   button.addEventListener("click", () => {
     document
@@ -463,6 +585,16 @@ $("issue-form").addEventListener("submit", async (event) => {
     url: sourceUrl,
     mode: latestCapture?.mode || "page",
     label: latestCapture?.label,
+    selector: latestCapture?.developerContext?.selector?.primary,
+    tagName: latestCapture?.developerContext?.element?.tag,
+    elementText: latestCapture?.developerContext?.element?.text,
+    elementHtml: latestCapture?.developerContext?.element?.html,
+    bounds: latestCapture?.developerContext?.bounds,
+    viewport: latestCapture?.viewport,
+    region: latestCapture?.region,
+    developerContext: latestCapture?.developerContext,
+    screenshotMode: latestCapture?.mode,
+    captureFormat: latestCapture ? "image/jpeg" : "",
     captureWidth: latestCapture?.width,
     captureHeight: latestCapture?.height,
   });

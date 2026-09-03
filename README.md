@@ -65,6 +65,8 @@ For manual or offline setup, expand **Use a personal API key**. Both connection 
 
 Linear descriptions are formatted for both people and coding agents. They include the requested change, feedback type, page title, complete URL and URL path, target selectors, visible element text, sanitized HTML, element and viewport geometry, accessibility metadata, box model, computed styles, CSS variables, ancestry and parent layout, reproduction steps, network activity, session events, diagnostics, acceptance checks, screenshot evidence, and a stable `doppie-assist/v3` JSON context block. Embedded form values, inline event handlers, scripts, styles, credentials, and embedded data URLs are removed from captured HTML.
 
+Region screenshots retain the selected coordinates, viewport metadata, and the DOM element at the center of the selection. After saving a screenshot, choose **Dev context** in its popup preview to inspect the page path, selector, accessibility metadata, geometry, key styles, and sanitized HTML or copy the complete JSON payload. This context is also included automatically when the screenshot becomes a Linear issue.
+
 OAuth tokens or the optional API key are stored locally in the browser profile. Connection metadata exposed to the popup and page review does not include those credentials.
 
 ## Automatic developer context and Codex skill

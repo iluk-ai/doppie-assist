@@ -61,6 +61,11 @@
           <path d="m7 10 5 5 5-5" />
           <path d="M5 21h14" />
         </symbol>
+        <symbol id="icon-code" viewBox="0 0 24 24">
+          <path d="m8 9-3 3 3 3" />
+          <path d="m16 9 3 3-3 3" />
+          <path d="m14 5-4 14" />
+        </symbol>
       </defs>
     </svg>
     <main class="shell">
@@ -114,8 +119,18 @@
             </div>
             <img id="capture-image" alt="Annotated page capture" />
             <div class="preview-bar">
-              <span id="capture-size">Targeted capture</span
-              ><button id="remove-capture">Remove</button>
+              <span id="capture-size">Targeted capture</span>
+              <div class="preview-actions">
+                <button
+                  class="capture-context-trigger"
+                  id="show-capture-context"
+                  type="button"
+                >
+                  <svg aria-hidden="true"><use href="#icon-code"></use></svg
+                  >Dev context
+                </button>
+                <button id="remove-capture" type="button">Remove</button>
+              </div>
             </div>
           </div>
         </section>
@@ -284,6 +299,28 @@
         <button class="primary routing-done" id="save-routing" type="button">
           <span>Done</span><span class="arrow">✓</span>
         </button>
+      </section>
+
+      <section
+        class="capture-context-view hidden"
+        id="capture-context-view"
+        aria-label="Screenshot developer context"
+      >
+        <div class="context-toolbar">
+          <button class="back" id="close-capture-context" type="button">
+            ← Back
+          </button>
+          <button class="context-copy" id="copy-capture-context" type="button">
+            <svg aria-hidden="true"><use href="#icon-code"></use></svg>
+            Copy JSON
+          </button>
+        </div>
+        <div class="context-title">
+          <p>CAPTURE EVIDENCE</p>
+          <h1>Developer context</h1>
+          <span id="capture-context-summary"></span>
+        </div>
+        <div class="context-content" id="capture-context-content"></div>
       </section>
 
       <footer>

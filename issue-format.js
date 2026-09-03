@@ -198,6 +198,7 @@
       html: context.elementHtml,
       bounds: context.bounds,
       viewport: context.viewport,
+      region: context.region,
     });
     const capture = compactObject({
       mode: context.screenshotMode,
@@ -232,6 +233,10 @@
     if (context.bounds)
       targetLines.push(
         `- **Bounds:** x ${context.bounds.x}, y ${context.bounds.y}, ${context.bounds.width} x ${context.bounds.height}px`,
+      );
+    if (context.region)
+      targetLines.push(
+        `- **Selected region:** x ${context.region.x}, y ${context.region.y}, ${context.region.width} x ${context.region.height}px`,
       );
     if (context.viewport)
       targetLines.push(
