@@ -185,6 +185,7 @@ async function startMultiAnnotation() {
   let hoverOrigin = null;
   let targetStack = [];
   let targetStackIndex = 0;
+  let targetPoint = null;
   let editingId = null;
   let reviewEditingId = null;
   let refreshQueued = false;
@@ -209,7 +210,7 @@ async function startMultiAnnotation() {
   layer.innerHTML = `
     <div class="doppie-review-tip">
       <img src="${chrome.runtime.getURL("assets/icon-32.png")}" alt="">
-      <span><strong>Review mode</strong><small>Pick an element · Alt + scroll selects parents</small></span>
+      <span><strong>Review mode</strong><small>Pick an element · Alt + scroll moves through hierarchy</small></span>
       <b class="doppie-dev-status" data-dev-status>Dev</b>
     </div>
     <div class="doppie-hover-box"><b></b><small></small></div>
@@ -355,7 +356,7 @@ async function startMultiAnnotation() {
       : "Review mode";
     layer.querySelector(".doppie-review-tip small").textContent = recording
       ? "Interactions, requests, and tab video are being captured"
-      : "Pick an element · Alt + scroll selects parents";
+      : "Pick an element · Alt + scroll moves through hierarchy";
     if (recording) hoverBox.classList.remove("visible", "selected");
   }
 
@@ -588,15 +589,58 @@ async function startMultiAnnotation() {
     return true;
   }
 
+  function getSelectableChildren(element) {
+    if (!element) return [];
+    return [...element.children].filter((child) => {
+      if (!(child instanceof Element) || isReviewUi(child)) return false;
+      const rect = child.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return false;
+      const style = getComputedStyle(child);
+      return style.display !== "none" && style.visibility !== "hidden";
+    });
+  }
+
+  function getPreferredChild(element) {
+    const children = getSelectableChildren(element);
+    if (!children.length) return null;
+    if (!targetPoint) return children[0];
+    const matches = children.filter((child) => {
+      const rect = child.getBoundingClientRect();
+      return (
+        targetPoint.x >= rect.left &&
+        targetPoint.x <= rect.right &&
+        targetPoint.y >= rect.top &&
+        targetPoint.y <= rect.bottom
+      );
+    });
+    return (
+      matches.sort((left, right) => {
+        const leftRect = left.getBoundingClientRect();
+        const rightRect = right.getBoundingClientRect();
+        return (
+          leftRect.width * leftRect.height -
+          rightRect.width * rightRect.height
+        );
+      })[0] || children[0]
+    );
+  }
+
   function updateTargetControls() {
     const child = popover.querySelector('[data-note-action="child"]');
     const parent = popover.querySelector('[data-note-action="parent"]');
-    child.disabled = targetStackIndex <= 0;
+    child.disabled = targetStackIndex <= 0 && !getPreferredChild(target);
     parent.disabled = targetStackIndex >= targetStack.length - 1;
   }
 
   function cycleTarget(direction) {
     if (!targetStack.length) return;
+    if (direction < 0 && targetStackIndex === 0) {
+      const child = getPreferredChild(target);
+      if (!child) return;
+      targetStack.unshift(child);
+      setTargetElement(child, { resetStack: false });
+      return;
+    }
     const nextIndex = Math.max(
       0,
       Math.min(targetStack.length - 1, targetStackIndex + direction),
@@ -1788,6 +1832,7 @@ async function startMultiAnnotation() {
       return;
     const candidate = event.target;
     if (!(candidate instanceof Element)) return;
+    targetPoint = { x: event.clientX, y: event.clientY };
     if (candidate !== hoverOrigin) setTargetElement(candidate);
     else updateHoverBox();
   }
@@ -1817,6 +1862,7 @@ async function startMultiAnnotation() {
     }
     const candidate = event.target;
     if (!(candidate instanceof Element)) return;
+    targetPoint = { x: event.clientX, y: event.clientY };
     event.preventDefault();
     event.stopImmediatePropagation();
     closePanel();
