@@ -33,7 +33,7 @@ const makeHarness = () => {
     commands: { onCommand: { addListener() {} } },
     identity: { getRedirectURL: () => "https://example.chromiumapp.org/linear" },
     runtime: {
-      getManifest: () => ({ version: "0.23.0" }),
+      getManifest: () => ({ version: "0.23.1" }),
       getURL: (value) => `chrome-extension://test/${value}`,
       getContexts: async () => [],
       onInstalled: {

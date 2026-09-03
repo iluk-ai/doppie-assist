@@ -165,6 +165,7 @@ async function copyText(value) {
 }
 
 async function loadState() {
+  $("build-version").textContent = `Doppie Assist v${chrome.runtime.getManifest().version}`;
   [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const state = await chrome.storage.local.get([
     "captures",

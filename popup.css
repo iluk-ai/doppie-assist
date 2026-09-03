@@ -1562,12 +1562,25 @@ form {
 .settings-view .shortcut-list > div {
   height: 30px;
 }
+.build-version {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font:
+    700 8px ui-monospace,
+    Menlo,
+    monospace;
+  text-align: center;
+  text-transform: uppercase;
+}
 
 body.auth-required .icon-btn,
 body.auth-required .shell > footer,
 body.auth-required .settings-view .back,
 body.auth-required .shortcut-list {
   display: none !important;
+}
+body.auth-required .build-version {
+  margin-top: 24px;
 }
 body.auth-required .settings-view {
   height: 548px;
