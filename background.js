@@ -5,7 +5,110 @@ const LINEAR_SCOPES = "read,write,issues:create";
 const LINEAR_OAUTH_REDIRECT_PATH = "linear";
 const DEFAULT_LINEAR_OAUTH_CLIENT_ID = "e0018f12b51653925dce65a8a48e355f";
 const DEV_BRIDGE_URL = "http://127.0.0.1:47361";
+const RELEASE_API =
+  "https://api.github.com/repos/iluk-ai/doppie-assist/releases/latest";
+const RELEASE_DOWNLOAD_PATH = "/iluk-ai/doppie-assist/releases/download/";
+const RELEASE_ASSET_PATTERN =
+  /^doppie-assist-browser-extension-v[\d.]+\.zip$/i;
+const UPDATE_ALARM = "doppie-assist-update-check";
+const UPDATE_CHECK_MINUTES = 6 * 60;
+const UPDATE_CACHE_MS = UPDATE_CHECK_MINUTES * 60 * 1000;
 let refreshPromise = null;
+
+const versionParts = (value) =>
+  String(value || "0")
+    .replace(/^v/i, "")
+    .split(".")
+    .slice(0, 3)
+    .map((part) => Number.parseInt(part, 10) || 0);
+
+const isNewerVersion = (candidate, current) => {
+  const next = versionParts(candidate);
+  const installed = versionParts(current);
+  for (let index = 0; index < 3; index += 1) {
+    if ((next[index] || 0) > (installed[index] || 0)) return true;
+    if ((next[index] || 0) < (installed[index] || 0)) return false;
+  }
+  return false;
+};
+
+const trustedReleaseUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" &&
+      url.hostname === "github.com" &&
+      url.pathname.startsWith(RELEASE_DOWNLOAD_PATH)
+      ? url.href
+      : "";
+  } catch (_) {
+    return "";
+  }
+};
+
+const updateBadge = async (release) => {
+  if (!chrome.action) return false;
+  const currentVersion = chrome.runtime.getManifest().version;
+  const available = Boolean(
+    release && isNewerVersion(release.version, currentVersion),
+  );
+  await chrome.action.setBadgeText({ text: available ? "UP" : "" });
+  if (available) {
+    await chrome.action.setBadgeBackgroundColor({ color: "#d8ff59" });
+    if (chrome.action.setBadgeTextColor)
+      await chrome.action.setBadgeTextColor({ color: "#17201b" });
+  }
+  await chrome.action.setTitle({
+    title: available
+      ? `Doppie Assist - ${release.tagName} available`
+      : "Doppie Assist",
+  });
+  return available;
+};
+
+const checkForUpdates = async ({ force = false } = {}) => {
+  const { latestReleaseCheck } = await chrome.storage.local.get(
+    "latestReleaseCheck",
+  );
+  let release = latestReleaseCheck || null;
+  if (
+    force ||
+    !release?.checkedAt ||
+    Date.now() - release.checkedAt > UPDATE_CACHE_MS
+  ) {
+    const response = await fetch(RELEASE_API, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!response.ok)
+      throw new Error(`GitHub update check failed (${response.status})`);
+    const payload = await response.json();
+    const asset = payload.assets?.find(
+      (item) =>
+        RELEASE_ASSET_PATTERN.test(item.name) && item.browser_download_url,
+    );
+    if (!asset) throw new Error("The latest release has no extension package");
+    const downloadUrl = trustedReleaseUrl(asset.browser_download_url);
+    if (!downloadUrl)
+      throw new Error("GitHub returned an unexpected download URL");
+    release = {
+      tagName: payload.tag_name,
+      version: String(payload.tag_name || "").replace(/^v/i, ""),
+      assetName: asset.name,
+      downloadUrl,
+      releaseUrl: payload.html_url,
+      checkedAt: Date.now(),
+    };
+    await chrome.storage.local.set({ latestReleaseCheck: release });
+  }
+  return { release, available: await updateBadge(release) };
+};
+
+const scheduleUpdateChecks = async () => {
+  if (!chrome.alarms) return;
+  await chrome.alarms.create(UPDATE_ALARM, {
+    delayInMinutes: 1,
+    periodInMinutes: UPDATE_CHECK_MINUTES,
+  });
+};
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(
@@ -29,6 +132,18 @@ chrome.runtime.onInstalled.addListener(() => {
       if (Object.keys(updates).length) chrome.storage.local.set(updates);
     },
   );
+  scheduleUpdateChecks();
+  checkForUpdates({ force: true }).catch(() => {});
+});
+
+chrome.runtime.onStartup?.addListener(() => {
+  scheduleUpdateChecks();
+  checkForUpdates().catch(() => {});
+});
+
+chrome.alarms?.onAlarm?.addListener((alarm) => {
+  if (alarm.name === UPDATE_ALARM)
+    checkForUpdates({ force: true }).catch(() => {});
 });
 
 const linearRequestWithAuthorization = async (
@@ -390,6 +505,13 @@ const devBridgeRequest = async (path, options = {}) => {
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "check-for-updates") {
+    checkForUpdates({ force: Boolean(message.force) })
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === "install-page-monitor") {
     if (!sender.tab?.id) {
       sendResponse({ ok: false, error: "No active page available" });

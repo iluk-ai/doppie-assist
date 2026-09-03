@@ -89,7 +89,7 @@ Enable **Developer context** in extension settings to include alternate selector
 
 ## Updates
 
-Doppie Assist checks the latest GitHub Release at most once every six hours. When a newer browser-extension package is available, settings and the login screen show **Download vX.Y.Z**. The button downloads the exact versioned ZIP from `iluk-ai/doppie-assist` and then shows the local-install steps: unzip the package, replace the currently loaded extension folder, and click **Reload** in `chrome://extensions`.
+Doppie Assist checks the latest GitHub Release when installed or started and then every six hours in the background. When a newer browser-extension package is available, the toolbar icon shows an **UP** badge, while settings and the login screen show **Download vX.Y.Z**. The button downloads the exact versioned ZIP from `iluk-ai/doppie-assist` and then shows the local-install steps: unzip the package, replace the currently loaded extension folder, and click **Reload** in `chrome://extensions`.
 
 Chrome does not allow an unpacked extension to replace its own files on macOS or Windows, so the final folder replacement remains manual. The update checker validates the GitHub repository and release-download path before starting the download.
 
@@ -100,6 +100,7 @@ Chrome does not allow an unpacked extension to replace its own files on macOS or
 - `clipboardWrite`: copy created Linear issue links immediately after creation.
 - `identity`: open Linear's OAuth consent flow and return to the extension callback.
 - `downloads`: save a selected update package from GitHub Releases.
+- `alarms`: check GitHub Releases periodically while Chrome is running.
 - `https://api.linear.app/*`: validate a Linear connection, request screenshot uploads, and create issues.
 - `https://uploads.linear.app/*`: upload screenshots to Linear's signed private storage URL.
 - `https://api.github.com/repos/iluk-ai/doppie-assist/*`: check the latest published version.

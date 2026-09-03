@@ -7,9 +7,6 @@ let developerMode = false;
 let latestRelease = null;
 let updateCheckRunning = false;
 const selectedLabelIds = new Set();
-const RELEASE_API =
-  "https://api.github.com/repos/iluk-ai/doppie-assist/releases/latest";
-const RELEASE_CACHE_MS = 6 * 60 * 60 * 1000;
 
 const escapeHtml = (value = "") =>
   value.replace(
@@ -65,7 +62,8 @@ function isNewerVersion(candidate, current) {
 function trustedReleaseUrl(value) {
   try {
     const url = new URL(value);
-    return url.hostname === "github.com" &&
+    return url.protocol === "https:" &&
+      url.hostname === "github.com" &&
       url.pathname.startsWith("/iluk-ai/doppie-assist/releases/download/")
       ? url.href
       : "";
@@ -105,41 +103,13 @@ async function checkForUpdates({ force = false } = {}) {
   button.querySelector("span").textContent = "Checking...";
   $("update-status").textContent = "Checking GitHub Releases";
   try {
-    const { latestReleaseCheck } = await chrome.storage.local.get(
-      "latestReleaseCheck",
-    );
-    let release = latestReleaseCheck;
-    if (
-      force ||
-      !release?.checkedAt ||
-      Date.now() - release.checkedAt > RELEASE_CACHE_MS
-    ) {
-      const response = await fetch(RELEASE_API, {
-        headers: { Accept: "application/vnd.github+json" },
-      });
-      if (!response.ok)
-        throw new Error(`GitHub update check failed (${response.status})`);
-      const payload = await response.json();
-      const asset = payload.assets?.find(
-        (item) =>
-          /^doppie-assist-browser-extension-v[\d.]+\.zip$/i.test(item.name) &&
-          item.browser_download_url,
-      );
-      if (!asset) throw new Error("The latest release has no extension package");
-      const downloadUrl = trustedReleaseUrl(asset.browser_download_url);
-      if (!downloadUrl)
-        throw new Error("GitHub returned an unexpected download URL");
-      release = {
-        tagName: payload.tag_name,
-        version: String(payload.tag_name || "").replace(/^v/i, ""),
-        assetName: asset.name,
-        downloadUrl,
-        releaseUrl: payload.html_url,
-        checkedAt: Date.now(),
-      };
-      await chrome.storage.local.set({ latestReleaseCheck: release });
-    }
-    renderUpdateState(release);
+    const response = await chrome.runtime.sendMessage({
+      type: "check-for-updates",
+      force,
+    });
+    if (!response?.ok)
+      throw new Error(response?.error || "Could not check GitHub");
+    renderUpdateState(response.release);
   } catch (error) {
     latestRelease = null;
     button.disabled = false;
