@@ -19,6 +19,8 @@ Download the latest packaged extension from [GitHub Releases](https://github.com
 
 Refresh any tab that was open before installation so the capture script can run on it. Browser-internal pages such as `chrome://settings` cannot be captured by extensions.
 
+On first open, Doppie Assist shows the Linear connection screen. Connect with OAuth or a personal API key to enter the issue composer. Disconnecting returns the popup to this login screen.
+
 ## Capture workflow
 
 1. Open Doppie Assist and choose **Region** to drag and mark up a freeform area, or **Review** to annotate multiple DOM elements directly on the page.
@@ -59,7 +61,7 @@ https://ifchfjlgbdafpbfofmkpnackdmjoblmn.chromiumapp.org/linear
 
 The extension's manifest contains a stable public key so an unpacked installation keeps the Chrome extension ID `ifchfjlgbdafpbfofmkpnackdmjoblmn`. Do not remove or replace the manifest `key`, because doing so changes the callback URL. The private key used to derive this identity is intentionally kept outside the extension and its packages.
 
-For manual or offline setup, expand **Use a personal API key**. Both connection methods validate access and load teams, active members, projects, and labels. The issue composer supports team, assignee, project, multiple labels, and priority. Before `issueCreate`, each capture is uploaded through Linear's signed `fileUpload` flow and its compact private asset URL is added to the Markdown description. Keeping base64 image data out of `IssueCreateInput` prevents large captures and multi-issue batches from triggering argument validation errors. Without a connection, the same action saves a local draft.
+For manual or offline setup, expand **Use a personal API key**. Both connection methods validate access and load teams, active members, projects, and labels. The issue composer supports team, assignee, project, multiple labels, and priority. Before `issueCreate`, each capture is uploaded through Linear's signed `fileUpload` flow and its compact private asset URL is added to the Markdown description. Keeping base64 image data out of `IssueCreateInput` prevents large captures and multi-issue batches from triggering argument validation errors.
 
 Linear descriptions are formatted for both people and coding agents. They include the requested change, feedback type, page title, complete URL and URL path, target selectors, visible element text, sanitized HTML, element and viewport geometry, accessibility metadata, box model, key computed styles, reproduction steps, diagnostics, acceptance checks, screenshot evidence, and a stable `doppie-assist/v2` JSON context block. Embedded form values, inline event handlers, scripts, styles, credentials, and embedded data URLs are removed from captured HTML.
 
@@ -85,14 +87,23 @@ Codex skills use the `$skill-name` invocation syntax, so `$doppie-assist` is the
 
 Enable **Developer context** in extension settings to include alternate selectors, accessibility role and name, box model, key styles, CSS variables, and nearby ancestors. A connected skill enables this automatically for the active review.
 
+## Updates
+
+Doppie Assist checks the latest GitHub Release at most once every six hours. When a newer browser-extension package is available, settings and the login screen show **Download vX.Y.Z**. The button downloads the exact versioned ZIP from `iluk-ai/doppie-assist` and then shows the local-install steps: unzip the package, replace the currently loaded extension folder, and click **Reload** in `chrome://extensions`.
+
+Chrome does not allow an unpacked extension to replace its own files on macOS or Windows, so the final folder replacement remains manual. The update checker validates the GitHub repository and release-download path before starting the download.
+
 ## Permissions
 
 - `activeTab` and `scripting`: start capture on the current page.
 - `storage` and `unlimitedStorage`: retain annotated JPEG captures and drafts.
 - `clipboardWrite`: copy created Linear issue links immediately after creation.
 - `identity`: open Linear's OAuth consent flow and return to the extension callback.
+- `downloads`: save a selected update package from GitHub Releases.
 - `https://api.linear.app/*`: validate a Linear connection, request screenshot uploads, and create issues.
 - `https://uploads.linear.app/*`: upload screenshots to Linear's signed private storage URL.
+- `https://api.github.com/repos/iluk-ai/doppie-assist/*`: check the latest published version.
+- `https://github.com/iluk-ai/doppie-assist/releases/download/*`: download the selected extension ZIP.
 - `http://127.0.0.1:47361/*`: detect and submit to the one-use local Codex skill listener.
 
 ## Attribution

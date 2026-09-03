@@ -1559,3 +1559,117 @@ form {
   outline: 3px solid rgba(232, 247, 107, 0.76);
   outline-offset: 2px;
 }
+
+.update-card {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 3px 3px 0 rgba(8, 10, 11, 0.16);
+}
+.update-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: #f7efd9;
+  color: #515193;
+}
+.update-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.update-copy,
+.update-copy strong,
+.update-copy small {
+  min-width: 0;
+  display: block;
+}
+.update-copy strong {
+  font-size: 10px;
+}
+.update-copy small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.25;
+}
+.update-card > button {
+  min-width: 58px;
+  height: 30px;
+  padding: 0 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+  font-size: 8px;
+  font-weight: 800;
+}
+.update-card > button.available {
+  background: var(--lime);
+}
+.update-card > button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.settings-view .back {
+  margin: 10px 0 14px;
+}
+.settings-view .settings-title h1 {
+  margin-bottom: 16px;
+}
+.settings-view .privacy {
+  margin: 8px 0;
+}
+.settings-view .developer-setting {
+  margin-top: 10px;
+}
+.settings-view .shortcut-list {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+.settings-view .shortcut-list > div {
+  height: 30px;
+}
+
+body.auth-required .icon-btn,
+body.auth-required .shell > footer,
+body.auth-required .settings-view .back,
+body.auth-required .developer-setting,
+body.auth-required .shortcut-list {
+  display: none !important;
+}
+body.auth-required .settings-view {
+  height: 548px;
+  padding: 38px 24px 28px;
+  overflow: hidden;
+}
+body.auth-required .settings-title p {
+  margin-bottom: 10px;
+}
+body.auth-required .settings-title h1 {
+  margin-bottom: 30px;
+  font-size: 31px;
+  line-height: 1.08;
+}
+body.auth-required .connection-actions {
+  gap: 12px;
+}
+body.auth-required .privacy {
+  margin-top: 16px;
+}

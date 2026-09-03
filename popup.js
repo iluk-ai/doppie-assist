@@ -4,7 +4,12 @@ let latestCapture;
 let currentPriority = 3;
 let linearConfig;
 let developerMode = false;
+let latestRelease = null;
+let updateCheckRunning = false;
 const selectedLabelIds = new Set();
+const RELEASE_API =
+  "https://api.github.com/repos/iluk-ai/doppie-assist/releases/latest";
+const RELEASE_CACHE_MS = 6 * 60 * 60 * 1000;
 
 const escapeHtml = (value = "") =>
   value.replace(
@@ -19,6 +24,158 @@ const toast = (message) => {
   $("toast").classList.add("show");
   setTimeout(() => $("toast").classList.remove("show"), 2400);
 };
+
+function showCompose() {
+  document.body.classList.remove("auth-required");
+  $("settings-view").classList.add("hidden");
+  $("compose-view").classList.remove("hidden");
+}
+
+function showSettings() {
+  $("compose-view").classList.add("hidden");
+  $("settings-view").classList.remove("hidden");
+  if (isLinearConnected()) checkForUpdates();
+}
+
+function showAuthScreen() {
+  document.body.classList.add("auth-required");
+  $("routing-view").classList.add("hidden");
+  $("drafts-view").classList.add("hidden");
+  $("compose-view").classList.add("hidden");
+  $("settings-view").classList.remove("hidden");
+}
+
+const versionParts = (value) =>
+  String(value || "0")
+    .replace(/^v/i, "")
+    .split(".")
+    .slice(0, 3)
+    .map((part) => Number.parseInt(part, 10) || 0);
+
+function isNewerVersion(candidate, current) {
+  const next = versionParts(candidate);
+  const installed = versionParts(current);
+  for (let index = 0; index < 3; index += 1) {
+    if ((next[index] || 0) > (installed[index] || 0)) return true;
+    if ((next[index] || 0) < (installed[index] || 0)) return false;
+  }
+  return false;
+}
+
+function trustedReleaseUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname === "github.com" &&
+      url.pathname.startsWith("/iluk-ai/doppie-assist/releases/download/")
+      ? url.href
+      : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function renderUpdateState(release = null) {
+  const currentVersion = chrome.runtime.getManifest().version;
+  const button = $("check-update");
+  const status = $("update-status");
+  latestRelease = release;
+  button.disabled = false;
+  button.classList.remove("available");
+  button.dataset.action = "check";
+  button.querySelector("span").textContent = "Check";
+  if (!release) {
+    status.innerHTML = `Version <b>${escapeHtml(currentVersion)}</b> installed`;
+    return;
+  }
+  if (isNewerVersion(release.version, currentVersion)) {
+    button.dataset.action = "download";
+    button.classList.add("available");
+    button.querySelector("span").textContent = `Download ${release.tagName}`;
+    status.innerHTML = `<b>${escapeHtml(release.tagName)}</b> is ready to install`;
+    return;
+  }
+  status.innerHTML = `Version <b>${escapeHtml(currentVersion)}</b> is up to date`;
+}
+
+async function checkForUpdates({ force = false } = {}) {
+  if (updateCheckRunning) return;
+  updateCheckRunning = true;
+  const button = $("check-update");
+  button.disabled = true;
+  button.querySelector("span").textContent = "Checking...";
+  $("update-status").textContent = "Checking GitHub Releases";
+  try {
+    const { latestReleaseCheck } = await chrome.storage.local.get(
+      "latestReleaseCheck",
+    );
+    let release = latestReleaseCheck;
+    if (
+      force ||
+      !release?.checkedAt ||
+      Date.now() - release.checkedAt > RELEASE_CACHE_MS
+    ) {
+      const response = await fetch(RELEASE_API, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (!response.ok)
+        throw new Error(`GitHub update check failed (${response.status})`);
+      const payload = await response.json();
+      const asset = payload.assets?.find(
+        (item) =>
+          /^doppie-assist-browser-extension-v[\d.]+\.zip$/i.test(item.name) &&
+          item.browser_download_url,
+      );
+      if (!asset) throw new Error("The latest release has no extension package");
+      const downloadUrl = trustedReleaseUrl(asset.browser_download_url);
+      if (!downloadUrl)
+        throw new Error("GitHub returned an unexpected download URL");
+      release = {
+        tagName: payload.tag_name,
+        version: String(payload.tag_name || "").replace(/^v/i, ""),
+        assetName: asset.name,
+        downloadUrl,
+        releaseUrl: payload.html_url,
+        checkedAt: Date.now(),
+      };
+      await chrome.storage.local.set({ latestReleaseCheck: release });
+    }
+    renderUpdateState(release);
+  } catch (error) {
+    latestRelease = null;
+    button.disabled = false;
+    button.dataset.action = "check";
+    button.querySelector("span").textContent = "Retry";
+    $("update-status").textContent = error.message || "Could not check GitHub";
+  } finally {
+    updateCheckRunning = false;
+  }
+}
+
+async function downloadLatestRelease() {
+  if (!latestRelease?.downloadUrl) return checkForUpdates({ force: true });
+  const downloadUrl = trustedReleaseUrl(latestRelease.downloadUrl);
+  if (!downloadUrl) {
+    latestRelease = null;
+    return checkForUpdates({ force: true });
+  }
+  const button = $("check-update");
+  button.disabled = true;
+  button.querySelector("span").textContent = "Starting...";
+  try {
+    await chrome.downloads.download({
+      url: downloadUrl,
+      filename: latestRelease.assetName,
+      saveAs: true,
+    });
+    $("update-status").innerHTML =
+      "Unzip the package, replace the extension folder, then click <b>Reload</b> in chrome://extensions";
+    button.querySelector("span").textContent = "Downloaded";
+  } catch (error) {
+    button.disabled = false;
+    button.querySelector("span").textContent = `Download ${latestRelease.tagName}`;
+    toast(error.message || "Could not download the update");
+  }
+}
 
 async function copyText(value) {
   if (!value) return false;
@@ -79,11 +236,16 @@ async function loadState() {
   renderConnection();
   renderDrafts(state.issues || []);
   await renderShortcuts();
+  renderUpdateState();
+  checkForUpdates();
 
-  if (
-    state.pendingComposer ||
-    new URLSearchParams(location.search).has("composer")
-  ) {
+  if (!isLinearConnected()) showAuthScreen();
+
+  const shouldOpenComposer =
+    isLinearConnected() &&
+    (state.pendingComposer ||
+      new URLSearchParams(location.search).has("composer"));
+  if (shouldOpenComposer) {
     await chrome.storage.local.remove("pendingComposer");
     requestAnimationFrame(() =>
       $("issue-title").focus({ preventScroll: true }),
@@ -106,6 +268,7 @@ function renderCapture() {
 
 function renderConnection() {
   const connected = isLinearConnected();
+  document.body.classList.toggle("auth-required", !connected);
   $("connection-status").classList.toggle("connected", connected);
   $("connection-status").innerHTML =
     `<i></i>${connected ? escapeHtml(linearConfig.viewer?.name || "Linear connected") : "Local mode"}`;
@@ -355,14 +518,8 @@ $("issue-form").addEventListener("submit", async (event) => {
   }
 });
 
-$("open-settings").addEventListener("click", () => {
-  $("compose-view").classList.add("hidden");
-  $("settings-view").classList.remove("hidden");
-});
-$("close-settings").addEventListener("click", () => {
-  $("settings-view").classList.add("hidden");
-  $("compose-view").classList.remove("hidden");
-});
+$("open-settings").addEventListener("click", showSettings);
+$("close-settings").addEventListener("click", showCompose);
 $("connect-oauth").addEventListener("click", async () => {
   const button = $("connect-oauth");
   const label = button.querySelector(".oauth-label");
@@ -378,6 +535,8 @@ $("connect-oauth").addEventListener("click", async () => {
   linearConfig = { ...response };
   delete linearConfig.ok;
   renderConnection();
+  showCompose();
+  checkForUpdates();
   toast("Linear connected with OAuth");
 });
 $("connect-api-key").addEventListener("click", async () => {
@@ -393,6 +552,8 @@ $("connect-api-key").addEventListener("click", async () => {
   linearConfig = { ...response };
   delete linearConfig.ok;
   renderConnection();
+  showCompose();
+  checkForUpdates();
   toast("Linear connected with API key");
 });
 $("disconnect").addEventListener("click", async () => {
@@ -404,6 +565,7 @@ $("disconnect").addEventListener("click", async () => {
   selectedLabelIds.clear();
   $("api-key").value = "";
   renderConnection();
+  showAuthScreen();
 });
 $("open-routing").addEventListener("click", () => {
   $("routing-view").classList.remove("hidden");
@@ -428,6 +590,11 @@ $("developer-mode").addEventListener("change", async (event) => {
   developerMode = event.target.checked;
   await chrome.storage.local.set({ developerMode });
   toast(developerMode ? "Developer context enabled" : "Developer context disabled");
+});
+$("check-update").addEventListener("click", () => {
+  if ($("check-update").dataset.action === "download")
+    downloadLatestRelease();
+  else checkForUpdates({ force: true });
 });
 $("inbox-tab").addEventListener("click", () =>
   $("drafts-view").classList.remove("hidden"),
