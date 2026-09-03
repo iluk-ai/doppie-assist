@@ -4,6 +4,7 @@ let latestCapture;
 let currentPriority = 3;
 let linearConfig;
 let latestRelease = null;
+let updateDownload = null;
 let updateCheckRunning = false;
 const selectedLabelIds = new Set();
 
@@ -80,6 +81,37 @@ function renderUpdateState(release = null) {
   button.classList.remove("available");
   button.dataset.action = "check";
   button.querySelector("span").textContent = "Check";
+  const downloadedVersion = updateDownload?.version || "0";
+  if (
+    isNewerVersion(downloadedVersion, currentVersion) &&
+    updateDownload.status === "downloading"
+  ) {
+    button.disabled = true;
+    button.querySelector("span").textContent = "Downloading...";
+    status.textContent = `${updateDownload.tagName} is downloading`;
+    return;
+  }
+  if (
+    isNewerVersion(downloadedVersion, currentVersion) &&
+    updateDownload.status === "ready"
+  ) {
+    button.dataset.action = "open-update";
+    button.classList.add("available");
+    button.querySelector("span").textContent = "Open extensions";
+    status.innerHTML = `<b>${escapeHtml(updateDownload.tagName)}</b> ZIP is ready to install`;
+    return;
+  }
+  if (
+    release &&
+    isNewerVersion(downloadedVersion, currentVersion) &&
+    updateDownload.status === "failed"
+  ) {
+    button.dataset.action = "download";
+    button.classList.add("available");
+    button.querySelector("span").textContent = "Retry download";
+    status.textContent = updateDownload.error || "The update download was interrupted";
+    return;
+  }
   if (!release) {
     status.innerHTML = `Version <b>${escapeHtml(currentVersion)}</b> installed`;
     return;
@@ -131,19 +163,28 @@ async function downloadLatestRelease() {
   button.disabled = true;
   button.querySelector("span").textContent = "Starting...";
   try {
-    await chrome.downloads.download({
-      url: downloadUrl,
-      filename: latestRelease.assetName,
-      saveAs: true,
+    const response = await chrome.runtime.sendMessage({
+      type: "download-extension-update",
+      release: { ...latestRelease, downloadUrl },
     });
-    $("update-status").innerHTML =
-      "Unzip the package, replace the extension folder, then click <b>Reload</b> in chrome://extensions";
-    button.querySelector("span").textContent = "Downloaded";
+    if (!response?.ok)
+      throw new Error(response?.error || "Could not start the download");
+    updateDownload = response.download;
+    renderUpdateState(latestRelease);
   } catch (error) {
     button.disabled = false;
     button.querySelector("span").textContent = `Download ${latestRelease.tagName}`;
     toast(error.message || "Could not download the update");
   }
+}
+
+async function openDownloadedUpdate() {
+  const response = await chrome.runtime.sendMessage({
+    type: "open-extension-update",
+    downloadId: updateDownload?.downloadId,
+  });
+  if (!response?.ok)
+    throw new Error(response?.error || "Could not open Chrome Extensions");
 }
 
 async function copyText(value) {
@@ -173,9 +214,11 @@ async function loadState() {
     "linearConfig",
     "lastSelection",
     "pendingComposer",
+    "extensionUpdateDownload",
   ]);
   latestCapture = state.captures?.[0];
   linearConfig = state.linearConfig;
+  updateDownload = state.extensionUpdateDownload || null;
   if (linearConfig?.apiKey && !Array.isArray(linearConfig.users)) {
     const migrated = await chrome.runtime.sendMessage({
       type: "linear-connect",
@@ -564,7 +607,16 @@ $("edit-shortcuts").addEventListener("click", async () => {
 $("check-update").addEventListener("click", () => {
   if ($("check-update").dataset.action === "download")
     downloadLatestRelease();
+  else if ($("check-update").dataset.action === "open-update")
+    openDownloadedUpdate().catch((error) =>
+      toast(error.message || "Could not open Chrome Extensions"),
+    );
   else checkForUpdates({ force: true });
+});
+chrome.storage.onChanged?.addListener((changes, areaName) => {
+  if (areaName !== "local" || !changes.extensionUpdateDownload) return;
+  updateDownload = changes.extensionUpdateDownload.newValue || null;
+  renderUpdateState(latestRelease);
 });
 $("inbox-tab").addEventListener("click", () =>
   $("drafts-view").classList.remove("hidden"),

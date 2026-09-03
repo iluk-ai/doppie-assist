@@ -14,8 +14,11 @@ const makeHarness = () => {
   const badgeTexts = [];
   const badgeTitles = [];
   const createdTabs = [];
+  const downloadRequests = [];
+  const shownDownloads = [];
   let messageListener;
   let alarmListener;
+  let downloadListener;
   let installedListener;
   let fetchCount = 0;
 
@@ -33,7 +36,7 @@ const makeHarness = () => {
     commands: { onCommand: { addListener() {} } },
     identity: { getRedirectURL: () => "https://example.chromiumapp.org/linear" },
     runtime: {
-      getManifest: () => ({ version: "0.23.1" }),
+      getManifest: () => ({ version: "0.24.0" }),
       getURL: (value) => `chrome-extension://test/${value}`,
       getContexts: async () => [],
       onInstalled: {
@@ -66,6 +69,19 @@ const makeHarness = () => {
     },
     offscreen: { createDocument: async () => {} },
     tabCapture: { getMediaStreamId: async () => "stream-id" },
+    downloads: {
+      download: async (input) => {
+        downloadRequests.push(input);
+        return 42;
+      },
+      search: async () => [{ id: 42, state: "in_progress" }],
+      show: async (downloadId) => shownDownloads.push(downloadId),
+      onChanged: {
+        addListener(listener) {
+          downloadListener = listener;
+        },
+      },
+    },
     tabs: {
       create: async (input) => {
         createdTabs.push(input);
@@ -116,6 +132,8 @@ const makeHarness = () => {
     badgeTexts,
     badgeTitles,
     createdTabs,
+    downloadRequests,
+    shownDownloads,
     get alarmListener() {
       return alarmListener;
     },
@@ -124,6 +142,9 @@ const makeHarness = () => {
     },
     get installedListener() {
       return installedListener;
+    },
+    triggerDownloadChanged(delta) {
+      return downloadListener(delta);
     },
     sendMessage,
     state,
@@ -171,4 +192,35 @@ test("opens Chrome shortcut settings from the extension UI", async () => {
   assert.equal(response.ok, true);
   assert.equal(harness.createdTabs.length, 1);
   assert.equal(harness.createdTabs[0].url, "chrome://extensions/shortcuts");
+});
+
+test("tracks a GitHub update download and opens its installation surfaces", async () => {
+  const harness = makeHarness();
+  const response = await harness.sendMessage({
+    type: "download-extension-update",
+    release: {
+      tagName: "v9.9.9",
+      version: "9.9.9",
+      assetName: "doppie-assist-browser-extension-v9.9.9.zip",
+      downloadUrl:
+        "https://github.com/iluk-ai/doppie-assist/releases/download/v9.9.9/doppie-assist-browser-extension-v9.9.9.zip",
+    },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.download.status, "downloading");
+  assert.equal(harness.downloadRequests[0].saveAs, true);
+  await harness.triggerDownloadChanged({
+    id: 42,
+    state: { current: "complete" },
+  });
+  assert.equal(harness.state.extensionUpdateDownload.status, "ready");
+
+  const opened = await harness.sendMessage({
+    type: "open-extension-update",
+    downloadId: 42,
+  });
+  assert.equal(opened.ok, true);
+  assert.deepEqual(harness.shownDownloads, [42]);
+  assert.equal(harness.createdTabs[0].url, "chrome://extensions");
 });

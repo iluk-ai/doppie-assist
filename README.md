@@ -91,7 +91,7 @@ Developer context is always automatic. Every element annotation includes alterna
 
 ## Updates
 
-Doppie Assist checks the latest GitHub Release when installed or started and then every six hours in the background. When a newer browser-extension package is available, the toolbar icon shows an **UP** badge, while settings and the login screen show **Download vX.Y.Z**. The button downloads the exact versioned ZIP from `iluk-ai/doppie-assist` and then shows the local-install steps: unzip the package, replace the currently loaded extension folder, and click **Reload** in `chrome://extensions`.
+Doppie Assist checks the latest GitHub Release when installed or started and then every six hours in the background. When a newer browser-extension package is available, the toolbar icon shows an **UP** badge, while settings and the login screen show **Download vX.Y.Z**. The service worker keeps tracking the download even if the popup closes. When the ZIP is ready, Settings shows **Open extensions**; this reveals the downloaded package and opens `chrome://extensions`. Unzip the package, replace the currently loaded extension folder, and click **Reload**.
 
 Chrome does not allow an unpacked extension to replace its own files on macOS or Windows, so the final folder replacement remains manual. The update checker validates the GitHub repository and release-download path before starting the download.
 

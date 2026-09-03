@@ -13,6 +13,7 @@ const RELEASE_ASSET_PATTERN =
 const UPDATE_ALARM = "doppie-assist-update-check";
 const UPDATE_CHECK_MINUTES = 6 * 60;
 const UPDATE_CACHE_MS = UPDATE_CHECK_MINUTES * 60 * 1000;
+const UPDATE_DOWNLOAD_STATE = "extensionUpdateDownload";
 const OFFSCREEN_RECORDER_URL = "offscreen.html";
 let refreshPromise = null;
 let offscreenCreatePromise = null;
@@ -112,6 +113,48 @@ const scheduleUpdateChecks = async () => {
   });
 };
 
+const startExtensionUpdateDownload = async (release = {}) => {
+  const downloadUrl = trustedReleaseUrl(release.downloadUrl);
+  const assetName = String(release.assetName || "");
+  if (!downloadUrl || !RELEASE_ASSET_PATTERN.test(assetName))
+    throw new Error("The update package is not trusted");
+  const downloadId = await chrome.downloads.download({
+    url: downloadUrl,
+    filename: assetName,
+    saveAs: true,
+  });
+  const download = {
+    downloadId,
+    status: "downloading",
+    version: String(release.version || "").replace(/^v/i, ""),
+    tagName: release.tagName || `v${release.version}`,
+    assetName,
+    startedAt: Date.now(),
+  };
+  await chrome.storage.local.set({ [UPDATE_DOWNLOAD_STATE]: download });
+  const [current] = await chrome.downloads.search({ id: downloadId });
+  if (!["complete", "interrupted"].includes(current?.state)) return download;
+  const settled = {
+    ...download,
+    status: current.state === "complete" ? "ready" : "failed",
+    error: current.error || "",
+    updatedAt: Date.now(),
+  };
+  await chrome.storage.local.set({ [UPDATE_DOWNLOAD_STATE]: settled });
+  return settled;
+};
+
+const openExtensionUpdate = async (downloadId) => {
+  if (Number.isInteger(downloadId)) {
+    try {
+      await Promise.resolve(chrome.downloads.show(downloadId));
+    } catch (_) {
+      // The file may have been moved; the extension manager is still useful.
+    }
+  }
+  await chrome.tabs.create({ url: "chrome://extensions", active: true });
+};
+
 const ensureOffscreenRecorder = async () => {
   const documentUrl = chrome.runtime.getURL(OFFSCREEN_RECORDER_URL);
   const contexts = await chrome.runtime.getContexts({
@@ -205,6 +248,28 @@ chrome.runtime.onStartup?.addListener(() => {
 chrome.alarms?.onAlarm?.addListener((alarm) => {
   if (alarm.name === UPDATE_ALARM)
     checkForUpdates({ force: true }).catch(() => {});
+});
+
+chrome.downloads?.onChanged?.addListener(async (delta) => {
+  if (!delta.state?.current && !delta.error?.current) return;
+  const { extensionUpdateDownload } = await chrome.storage.local.get(
+    UPDATE_DOWNLOAD_STATE,
+  );
+  if (extensionUpdateDownload?.downloadId !== delta.id) return;
+  const status =
+    delta.state?.current === "complete"
+      ? "ready"
+      : delta.state?.current === "interrupted" || delta.error?.current
+        ? "failed"
+        : extensionUpdateDownload.status;
+  await chrome.storage.local.set({
+    [UPDATE_DOWNLOAD_STATE]: {
+      ...extensionUpdateDownload,
+      status,
+      error: delta.error?.current || "",
+      updatedAt: Date.now(),
+    },
+  });
 });
 
 const linearRequestWithAuthorization = async (
@@ -571,6 +636,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "open-shortcut-settings") {
     chrome.tabs
       .create({ url: "chrome://extensions/shortcuts", active: true })
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "download-extension-update") {
+    startExtensionUpdateDownload(message.release)
+      .then((download) => sendResponse({ ok: true, download }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "open-extension-update") {
+    openExtensionUpdate(message.downloadId)
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
