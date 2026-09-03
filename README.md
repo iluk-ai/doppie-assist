@@ -69,25 +69,27 @@ Region screenshots retain the selected coordinates, viewport metadata, and the D
 
 OAuth tokens or the optional API key are stored locally in the browser profile. Connection metadata exposed to the popup and page review does not include those credentials.
 
-## Automatic developer context and Codex skill
+## Automatic developer context and agent skill
 
 Doppie Assist can hand a browser review directly to a coding agent without creating Linear issues. The connection is manual and local: the skill opens a one-use listener on `127.0.0.1:47361`, the extension shows **Agent connected**, and no review data is sent until you choose **Send to coding agent**.
 
 After invocation, the skill keeps the listener running without asking for confirmation. Submission from the extension resumes the same agent turn automatically; a new prompt is only needed when the user explicitly cancels or the listener times out.
 
-Install the bundled skill in your Codex skill directory:
+Install the skill globally with Skills CLI:
 
 ```bash
-cp -R skills/doppie-assist "${CODEX_HOME:-$HOME/.codex}/skills/doppie-assist"
+npx skills add iluk-ai/doppie-assist --skill doppie-assist --global --copy
 ```
 
-Then invoke it from a Codex terminal prompt:
+The interactive installer detects supported agents and lets the user choose where to install the skill. Do not add `--agent` or `--yes` when presenting this installation flow. The repository must be public, or the user must already have authenticated Git access and permission to clone it.
+
+Then invoke the installed skill using the selected agent's skill interface. In Codex:
 
 ```text
 $doppie-assist
 ```
 
-Codex skills use the `$skill-name` invocation syntax, so `$doppie-assist` is the supported equivalent of a `/doppie-assist` command. The skill waits up to 30 minutes for one review, writes its JSON, Markdown brief, screenshots, and optional flow video under the operating-system temporary directory, then maps the rendered selectors and developer context back to the current codebase.
+The skill waits up to 30 minutes for one review, writes its JSON, Markdown brief, screenshots, and optional flow video under the operating-system temporary directory, then maps the rendered selectors and developer context back to the current codebase.
 
 Developer context is always automatic. Every element annotation includes alternate selectors, accessibility role and name, box model, key styles, CSS variables, and nearby ancestors. **Agent connected** appears when the local listener is ready, but there is no mode toggle to manage.
 
@@ -111,7 +113,7 @@ Chrome does not allow an unpacked extension to replace its own files on macOS or
 - `https://uploads.linear.app/*`: upload screenshots and recorded flow videos to Linear's signed private storage URL.
 - `https://api.github.com/repos/iluk-ai/doppie-assist/*`: check the latest published version.
 - `https://github.com/iluk-ai/doppie-assist/releases/download/*`: download the selected extension ZIP.
-- `http://127.0.0.1:47361/*`: detect and submit to the one-use local Codex skill listener.
+- `http://127.0.0.1:47361/*`: detect and submit to the one-use local coding-agent skill listener.
 
 ## Attribution
 
