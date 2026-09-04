@@ -229,6 +229,8 @@ async function startMultiAnnotation() {
   let targetStack = [];
   let targetStackIndex = 0;
   let targetPoint = null;
+  let targetSnapshot = null;
+  let snapshotCaptureQueue = Promise.resolve();
   let editingId = null;
   let reviewEditingId = null;
   let refreshQueued = false;
@@ -309,6 +311,18 @@ async function startMultiAnnotation() {
   const sendAgentButton = layer.querySelector(
     '[data-panel-action="send-agent"]',
   );
+  const targetObserver = new MutationObserver(() => {
+    if (
+      popover.classList.contains("visible") &&
+      target &&
+      !target.isConnected
+    )
+      queueRefresh();
+  });
+  targetObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
 
   const isReviewUi = (element) =>
     element?.closest?.(
@@ -624,7 +638,8 @@ async function startMultiAnnotation() {
     }
     target = element;
     if (popover.classList.contains("visible")) {
-      popover.querySelector("header small").textContent = describeElement(target);
+      freezeTarget(element);
+      renderTargetState();
       positionPopover(target);
     }
     updateTargetControls();
@@ -671,8 +686,77 @@ async function startMultiAnnotation() {
   function updateTargetControls() {
     const child = popover.querySelector('[data-note-action="child"]');
     const parent = popover.querySelector('[data-note-action="parent"]');
+    if (!target?.isConnected) {
+      child.disabled = true;
+      parent.disabled = true;
+      return;
+    }
     child.disabled = targetStackIndex <= 0 && !getPreferredChild(target);
     parent.disabled = targetStackIndex >= targetStack.length - 1;
+  }
+
+  function freezeTarget(element) {
+    if (!element?.isConnected) return targetSnapshot;
+    const rect = element.getBoundingClientRect();
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio || 1,
+      scrollX: Math.round(window.scrollX),
+      scrollY: Math.round(window.scrollY),
+    };
+    const snapshot = {
+      label: describeElement(element),
+      developerContext: DoppieDevContext.capture(element),
+      rect: {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      },
+      viewport,
+      pageTitle: document.title,
+      pageUrl: location.href,
+      screenshotPromise: null,
+    };
+    const capture = async () => {
+      if (!document.contains(layer)) return "";
+      const previousVisibility = layer.style.visibility;
+      layer.style.visibility = "hidden";
+      await nextPaint();
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: "capture-visible-tab",
+        });
+        return response?.ok ? response.dataUrl : "";
+      } catch (_) {
+        return "";
+      } finally {
+        if (document.contains(layer)) layer.style.visibility = previousVisibility;
+      }
+    };
+    snapshot.screenshotPromise = snapshotCaptureQueue
+      .catch(() => "")
+      .then(capture);
+    snapshotCaptureQueue = snapshot.screenshotPromise;
+    targetSnapshot = snapshot;
+    return snapshot;
+  }
+
+  function renderTargetState() {
+    const detached = Boolean(
+      popover.classList.contains("visible") &&
+        targetSnapshot &&
+        !target?.isConnected,
+    );
+    popover.classList.toggle("target-detached", detached);
+    hoverBox.classList.toggle("detached", detached);
+    if (!popover.classList.contains("visible")) return;
+    popover.querySelector("header small").textContent = detached
+      ? `${targetSnapshot.label} · saved snapshot`
+      : describeElement(target);
   }
 
   function cycleTarget(direction) {
@@ -734,12 +818,23 @@ async function startMultiAnnotation() {
   }
 
   function updateHoverBox() {
-    if (!target?.isConnected) {
+    const connected = Boolean(target?.isConnected);
+    if (!connected && !(targetSnapshot && popover.classList.contains("visible"))) {
       hoverBox.classList.remove("visible");
       hoverBox.classList.remove("selected");
       return;
     }
-    const rect = target.getBoundingClientRect();
+    const rect = connected
+      ? target.getBoundingClientRect()
+      : {
+          ...targetSnapshot.rect,
+          left:
+            targetSnapshot.rect.left -
+            (window.scrollX - targetSnapshot.viewport.scrollX),
+          top:
+            targetSnapshot.rect.top -
+            (window.scrollY - targetSnapshot.viewport.scrollY),
+        };
     if (rect.width < 2 || rect.height < 2) return;
     const left = Math.max(0, rect.left);
     const top = Math.max(0, rect.top);
@@ -749,13 +844,16 @@ async function startMultiAnnotation() {
       width: `${Math.max(1, Math.min(window.innerWidth - left, rect.width))}px`,
       height: `${Math.max(1, Math.min(window.innerHeight - top, rect.height))}px`,
     });
-    hoverLabel.textContent = describeElement(target);
+    hoverLabel.textContent = connected
+      ? describeElement(target)
+      : `${targetSnapshot.label} · saved`;
     hoverSize.textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)}`;
     hoverBox.classList.toggle("badge-below", rect.top < 46);
     hoverBox.classList.toggle(
       "selected",
       popover.classList.contains("visible"),
     );
+    renderTargetState();
     hoverBox.classList.add("visible");
   }
 
@@ -785,6 +883,7 @@ async function startMultiAnnotation() {
   function openNote(element, annotation = null) {
     if (!element?.isConnected) return;
     setTargetElement(element);
+    freezeTarget(element);
     editingId = annotation?.id || null;
     popover.querySelector("header small").textContent =
       describeElement(element);
@@ -817,6 +916,7 @@ async function startMultiAnnotation() {
     editingId = null;
     noteError.textContent = "";
     target = null;
+    targetSnapshot = null;
     hoverOrigin = null;
     targetStack = [];
     targetStackIndex = 0;
@@ -830,8 +930,11 @@ async function startMultiAnnotation() {
       refreshQueued = false;
       updateHoverBox();
       updatePins();
-      if (popover.classList.contains("visible") && target?.isConnected)
-        positionPopover(target);
+      if (popover.classList.contains("visible")) {
+        renderTargetState();
+        updateTargetControls();
+        if (target?.isConnected) positionPopover(target);
+      }
     });
   }
 
@@ -1031,7 +1134,7 @@ async function startMultiAnnotation() {
           ? "Creating..."
           : annotation.status === "failed"
             ? escapeMarkup(annotation.error || "Failed")
-            : `${escapeMarkup(DoppieIssueFormat.FEEDBACK_TYPES[annotation.feedbackType]?.label || "UI change")} · ${escapeMarkup(annotation.label)}${annotation.routing ? " · Custom routing" : ""}`;
+          : `${escapeMarkup(DoppieIssueFormat.FEEDBACK_TYPES[annotation.feedbackType]?.label || "UI change")} · ${escapeMarkup(annotation.label)}${annotation.targetState === "detached-snapshot" ? " · Saved snapshot" : ""}${annotation.routing ? " · Custom routing" : ""}`;
       const locked = ["creating", "success"].includes(annotation.status);
       const evidence = annotation.screenshot
         ? `<img src="${annotation.screenshot}" alt="Screenshot of ${escapeMarkup(annotation.label)}">`
@@ -1299,8 +1402,37 @@ async function startMultiAnnotation() {
     }
   }
 
-  async function captureAnnotation(element, mode = "element", markerNumber = 1) {
+  async function captureAnnotation(
+    element,
+    mode = "element",
+    markerNumber = 1,
+    snapshot = null,
+  ) {
     if (mode === "none") return { dataUrl: "", width: 0, height: 0 };
+    if (snapshot?.screenshotPromise) {
+      const dataUrl = await snapshot.screenshotPromise;
+      if (dataUrl) {
+        if (mode === "viewport")
+          return markViewportScreenshot(
+            dataUrl,
+            snapshot.rect,
+            markerNumber,
+            snapshot.viewport,
+          );
+        return cropScreenshot(
+          dataUrl,
+          {
+            x: snapshot.rect.left - 20,
+            y: snapshot.rect.top - 20,
+            width: snapshot.rect.width + 40,
+            height: snapshot.rect.height + 40,
+          },
+          snapshot.viewport,
+        );
+      }
+    }
+    if (!element?.isConnected)
+      return { dataUrl: "", width: 0, height: 0 };
     const bounds = element.getBoundingClientRect();
     const padding = mode === "element" ? 20 : 0;
     const rect =
@@ -1335,15 +1467,17 @@ async function startMultiAnnotation() {
       noteText.focus();
       return;
     }
-    if (!target?.isConnected) {
-      noteError.textContent = "This element is no longer on the page.";
+    if (!targetSnapshot) {
+      noteError.textContent = "Select the target again before adding it.";
       return;
     }
     const button = popover.querySelector('[data-note-action="save"]');
     const buttonLabel = button.querySelector("span");
     const idleText = buttonLabel.textContent;
     const selectedElement = target;
-    const developerContext = DoppieDevContext.capture(selectedElement);
+    const snapshot = targetSnapshot;
+    const developerContext = snapshot.developerContext;
+    const targetDetached = !selectedElement?.isConnected;
     const screenshotMode =
       popover.querySelector("[data-capture-mode].active")?.dataset.captureMode ||
       "element";
@@ -1359,6 +1493,7 @@ async function startMultiAnnotation() {
         selectedElement,
         screenshotMode,
         markerNumber,
+        snapshot,
       );
       const title = note.split("\n")[0].trim().slice(0, 120);
       defaultFeedbackType = noteType.value;
@@ -1366,26 +1501,21 @@ async function startMultiAnnotation() {
         note,
         title,
         feedbackType: noteType.value,
-        label: describeElement(selectedElement),
+        label: snapshot.label,
         selector: developerContext.selector.primary,
         elementText: developerContext.element.text,
         elementHtml: developerContext.element.html,
         tagName: developerContext.element.tag,
         bounds: developerContext.bounds,
-        viewport: {
-          width: window.innerWidth,
-          height: window.innerHeight,
-          devicePixelRatio: window.devicePixelRatio || 1,
-          scrollX: Math.round(window.scrollX),
-          scrollY: Math.round(window.scrollY),
-        },
+        viewport: snapshot.viewport,
         developerContext,
+        targetState: targetDetached ? "detached-snapshot" : "live-snapshot",
         screenshotMode,
         screenshot: crop.dataUrl,
         width: crop.width,
         height: crop.height,
-        pageTitle: document.title,
-        pageUrl: location.href,
+        pageTitle: snapshot.pageTitle,
+        pageUrl: snapshot.pageUrl,
         element: selectedElement,
         status: "pending",
         issue: null,
@@ -1397,7 +1527,7 @@ async function startMultiAnnotation() {
       renderSession();
       await persistSession(true);
       showPageToast(
-        `${existing ? "Annotation updated" : `Annotation ${annotations.length} added`}. Select another element or review issues.`,
+        `${existing ? "Annotation updated" : `Annotation ${annotations.length} added`}${targetDetached ? " from saved evidence" : ""}. Select another element or review issues.`,
       );
     } catch (error) {
       noteError.textContent =
@@ -1682,6 +1812,7 @@ async function startMultiAnnotation() {
       bounds: annotation.bounds,
       viewport: annotation.viewport,
       developerContext: annotation.developerContext,
+      targetState: annotation.targetState,
       screenshotMode: annotation.screenshotMode || "element",
       captureWidth: annotation.width,
       captureHeight: annotation.height,
@@ -1852,6 +1983,7 @@ async function startMultiAnnotation() {
     window.removeEventListener("resize", queueRefresh);
     window.removeEventListener("beforeunload", onBeforeUnload);
     window.removeEventListener("doppie-assist:diagnostic", onDiagnosticEvent);
+    targetObserver.disconnect();
     clearInterval(bridgeCheckTimer);
     window.dispatchEvent(
       new CustomEvent("doppie-assist:monitor-control", { detail: "stop" }),
@@ -2176,12 +2308,12 @@ function nextPaint() {
   );
 }
 
-function cropScreenshot(dataUrl, rect) {
+function cropScreenshot(dataUrl, rect, viewport = null) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
-      const scaleX = image.naturalWidth / window.innerWidth;
-      const scaleY = image.naturalHeight / window.innerHeight;
+      const scaleX = image.naturalWidth / (viewport?.width || window.innerWidth);
+      const scaleY = image.naturalHeight / (viewport?.height || window.innerHeight);
       const sourceX = Math.max(0, Math.floor(rect.x * scaleX));
       const sourceY = Math.max(0, Math.floor(rect.y * scaleY));
       const sourceRight = Math.min(
@@ -2227,7 +2359,12 @@ function cropScreenshot(dataUrl, rect) {
   });
 }
 
-function markViewportScreenshot(dataUrl, targetRect, markerNumber) {
+function markViewportScreenshot(
+  dataUrl,
+  targetRect,
+  markerNumber,
+  viewport = null,
+) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
@@ -2239,8 +2376,8 @@ function markViewportScreenshot(dataUrl, targetRect, markerNumber) {
       const context = canvas.getContext("2d");
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-      const scaleX = canvas.width / window.innerWidth;
-      const scaleY = canvas.height / window.innerHeight;
+      const scaleX = canvas.width / (viewport?.width || window.innerWidth);
+      const scaleY = canvas.height / (viewport?.height || window.innerHeight);
       const x = Math.max(1, targetRect.left * scaleX);
       const y = Math.max(1, targetRect.top * scaleY);
       const width = Math.max(2, Math.min(canvas.width - x - 1, targetRect.width * scaleX));

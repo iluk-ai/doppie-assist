@@ -24,6 +24,7 @@ test("agent issue format includes developer and route context", () => {
     tagName: "section",
     elementText: "Team settings",
     elementHtml: '<section data-testid="settings">Team settings</section>',
+    targetState: "detached-snapshot",
     screenshotMode: "element",
     captureWidth: 640,
     captureHeight: 320,
@@ -74,6 +75,11 @@ test("agent issue format includes developer and route context", () => {
   assert.match(description, /"mode": "element"/);
   assert.match(description, /Selected region:\*\* x 112, y 84, 640 x 320px/);
   assert.match(description, /Viewport:\*\* 1440 x 900px @ 2x/);
+  assert.match(
+    description,
+    /Element left the DOM; saved selection evidence used/,
+  );
+  assert.match(description, /"state": "detached-snapshot"/);
   assert.match(description, /"region": \{/);
   assert.match(description, /Network activity/);
   assert.match(description, /POST · 422 · 84.2ms/);

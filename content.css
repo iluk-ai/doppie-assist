@@ -2269,6 +2269,24 @@
   flex: 1 1 auto !important;
 }
 
+.doppie-hover-box.detached {
+  border-color: #515193 !important;
+  border-style: dashed !important;
+  background: rgba(81, 81, 147, 0.12) !important;
+  box-shadow: 0 0 0 2px #080a0b !important;
+}
+.doppie-hover-box.detached b {
+  background: #515193 !important;
+  color: #fff !important;
+}
+.doppie-note-popover.target-detached {
+  border-top-color: #515193 !important;
+}
+.doppie-note-popover.target-detached header small {
+  color: #515193 !important;
+  font-weight: 800 !important;
+}
+
 @media (max-width: 720px) {
   .doppie-session-bar .doppie-record-button span {
     display: none !important;

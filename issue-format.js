@@ -199,6 +199,7 @@
       bounds: context.bounds,
       viewport: context.viewport,
       region: context.region,
+      state: context.targetState,
     });
     const capture = compactObject({
       mode: context.screenshotMode,
@@ -233,6 +234,10 @@
     if (context.bounds)
       targetLines.push(
         `- **Bounds:** x ${context.bounds.x}, y ${context.bounds.y}, ${context.bounds.width} x ${context.bounds.height}px`,
+      );
+    if (context.targetState)
+      targetLines.push(
+        `- **Target state:** ${context.targetState === "detached-snapshot" ? "Element left the DOM; saved selection evidence used" : "Saved at selection time"}`,
       );
     if (context.region)
       targetLines.push(
